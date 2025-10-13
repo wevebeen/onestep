@@ -1,0 +1,79 @@
+# Cursor IDE 配置文件夹
+.cursor/
+.gitignore
+.gitattributes
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+*~
+
+# 备份文件
+*.bak
+*.backup
+*.orig
+
+# 编译文件
+*.o
+*.so
+*.dylib
+*.exe
+*.dll
+
+# 依赖目录
+node_modules/
+vendor/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE 配置文件
+.vscode/
+.idea/
+*.sublime-*
+
+# 测试覆盖率报告
+coverage/
+.nyc_output/
+htmlcov/
+.coverage
+*.cover
+.pytest_cache/
+
+# 环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 构建输出
+dist/
+build/
+out/
+target/
+
+# PVE安装脚本生成的临时文件
+install_pve.sh
+build_backend.sh
+debug.log
+install.log
+backups/
+

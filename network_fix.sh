@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.8"
+SCRIPT_VERSION="1.6.9"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -968,6 +968,7 @@ restore_network_config() {
                 ;;
         esac
         
+        # 显示所有文件的检查状态
         if [ -f "$backup_file" ] && [ -f "$current_file" ]; then
             if ! diff -q "$backup_file" "$current_file" >/dev/null 2>&1; then
                 changed_files+=("$file")
@@ -976,11 +977,16 @@ restore_network_config() {
                 _green "✓ $file 无修改"
             fi
         elif [ -f "$backup_file" ] && [ ! -f "$current_file" ]; then
-            changed_files+=("$file (文件不存在)")
-            _yellow "📝 $file 当前不存在"
+            changed_files+=("$file (备份存在，当前不存在)")
+            _yellow "📝 $file 备份存在，当前不存在"
+            _blue "ℹ️ 恢复时会创建文件: $current_file"
         elif [ ! -f "$backup_file" ] && [ -f "$current_file" ]; then
-            changed_files+=("$file (备份不存在)")
-            _yellow "📝 $file 备份不存在"
+            changed_files+=("$file (备份不存在，当前存在)")
+            _yellow "📝 $file 备份不存在，当前存在"
+            _red "⚠️ 恢复时会删除当前文件: $current_file"
+        else
+            # 两个都不存在，显示跳过
+            _blue "⏭️ $file 跳过 (备份和当前都不存在)"
         fi
     done
     
@@ -998,6 +1004,7 @@ restore_network_config() {
                 ;;
         esac
         
+        # 显示所有目录的检查状态
         if [ -d "$backup_dir" ] && [ -d "$current_dir" ]; then
             if ! diff -r "$backup_dir" "$current_dir" >/dev/null 2>&1; then
                 changed_files+=("$dir (目录有修改)")
@@ -1006,11 +1013,16 @@ restore_network_config() {
                 _green "✓ $dir 目录无修改"
             fi
         elif [ -d "$backup_dir" ] && [ ! -d "$current_dir" ]; then
-            changed_files+=("$dir (目录不存在)")
-            _yellow "📝 $dir 目录当前不存在"
+            changed_files+=("$dir (备份存在，当前不存在)")
+            _yellow "📝 $dir 目录备份存在，当前不存在"
+            _blue "ℹ️ 恢复时会创建目录: $current_dir"
         elif [ ! -d "$backup_dir" ] && [ -d "$current_dir" ]; then
-            changed_files+=("$dir (备份不存在)")
-            _yellow "📝 $dir 目录备份不存在"
+            changed_files+=("$dir (备份不存在，当前存在)")
+            _yellow "📝 $dir 目录备份不存在，当前存在"
+            _red "⚠️ 恢复时会删除当前目录: $current_dir"
+        else
+            # 两个都不存在，显示跳过
+            _blue "⏭️ $dir 跳过 (备份和当前都不存在)"
         fi
     done
     
@@ -1035,6 +1047,67 @@ restore_network_config() {
     for file in "${protected_files[@]}"; do
         if [ -f "$file" ] && command -v chattr >/dev/null 2>&1; then
             chattr -i "$file" 2>/dev/null && _green "✓ 已解除 $file 的保护" || true
+        fi
+    done
+    echo
+    
+    # 删除备份不存在但当前存在的文件
+    _blue "🗑️ 删除备份不存在但当前存在的文件..."
+    local backup_files=("hostname" "hosts" "interfaces" "resolv.conf" "sshd_config" "ntp.conf" "chrony.conf" "environment" "exports" "smb.conf" "snmpd.conf" "dhcpd.conf" "dhcpcd.conf")
+    
+    for file in "${backup_files[@]}"; do
+        local backup_file="$selected_backup/$file"
+        local current_file=""
+        
+        case "$file" in
+            "hostname")
+                current_file="/etc/hostname"
+                ;;
+            "hosts")
+                current_file="/etc/hosts"
+                ;;
+            "interfaces")
+                current_file="/etc/network/interfaces"
+                ;;
+            "resolv.conf")
+                current_file="/etc/resolv.conf"
+                ;;
+            "sshd_config")
+                current_file="/etc/ssh/sshd_config"
+                ;;
+            "ntp.conf")
+                current_file="/etc/ntp.conf"
+                ;;
+            "chrony.conf")
+                current_file="/etc/chrony.conf"
+                ;;
+            "environment")
+                current_file="/etc/environment"
+                ;;
+            "exports")
+                current_file="/etc/exports"
+                ;;
+            "smb.conf")
+                current_file="/etc/samba/smb.conf"
+                ;;
+            "snmpd.conf")
+                current_file="/etc/snmp/snmpd.conf"
+                ;;
+            "dhcpd.conf")
+                current_file="/etc/dhcp/dhcpd.conf"
+                ;;
+            "dhcpcd.conf")
+                current_file="/etc/dhcpcd.conf"
+                ;;
+        esac
+        
+        # 如果备份不存在但当前存在，删除当前文件
+        if [ ! -f "$backup_file" ] && [ -f "$current_file" ]; then
+            rm "$current_file" 2>/dev/null && {
+                _green "✓ 已删除: $current_file"
+            } || {
+                _red "❌ 删除失败: $current_file"
+            }
         fi
     done
     echo

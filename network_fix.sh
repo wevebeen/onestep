@@ -404,16 +404,189 @@ test_external_ssh_access() {
     if [ -n "$server_ip" ]; then
         _green "服务器IP: $server_ip"
         _green "SSH访问地址: ssh root@$server_ip -p $SSH_PORT"
+        echo
         
-        # 检查端口是否可以从外网访问
-        if timeout 5 bash -c "</dev/tcp/$server_ip/$SSH_PORT" 2>/dev/null; then
-            _green "✓ SSH端口 $SSH_PORT 外网可访问"
+        # 1. 检查SSH服务状态
+        _yellow "1. 检查SSH服务状态..."
+        if systemctl is-active ssh &>/dev/null || systemctl is-active sshd &>/dev/null; then
+            _green "✓ SSH服务: 运行中"
         else
-            _yellow "⚠ SSH端口 $SSH_PORT 外网访问测试失败"
-            _yellow "可能原因: 防火墙阻止、网络问题或SSH服务未运行"
+            _red "❌ SSH服务: 未运行"
+            _yellow "建议: systemctl start ssh 或 systemctl start sshd"
         fi
+        
+        # 2. 检查端口监听
+        _yellow "2. 检查SSH端口监听..."
+        if netstat -tlnp | grep ":$SSH_PORT " >/dev/null 2>&1; then
+            _green "✓ SSH端口 $SSH_PORT: 正在监听"
+        else
+            _red "❌ SSH端口 $SSH_PORT: 未监听"
+            _yellow "建议: 检查SSH配置文件 /etc/ssh/sshd_config"
+        fi
+        
+        # 3. 检查防火墙规则
+        _yellow "3. 检查防火墙规则..."
+        local firewall_blocked=0
+        
+        # 检查iptables
+        if command -v iptables &>/dev/null; then
+            local iptables_rules=$(iptables -L INPUT | grep -c "DROP\|REJECT")
+            if [ "$iptables_rules" -gt 0 ]; then
+                local ssh_allowed=$(iptables -L INPUT | grep -c "ACCEPT.*$SSH_PORT\|ACCEPT.*ssh")
+                if [ "$ssh_allowed" -eq 0 ]; then
+                    _yellow "⚠ iptables: 可能有规则阻止SSH端口"
+                    firewall_blocked=1
+                else
+                    _green "✓ iptables: SSH端口已允许"
+                fi
+            fi
+        fi
+        
+        # 检查ufw
+        if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
+            if ufw status | grep "$SSH_PORT" | grep -q "ALLOW"; then
+                _green "✓ ufw: SSH端口 $SSH_PORT 已开放"
+            else
+                _yellow "⚠ ufw: SSH端口 $SSH_PORT 可能被阻止"
+                _yellow "建议: ufw allow $SSH_PORT"
+                firewall_blocked=1
+            fi
+        fi
+        
+        # 检查firewalld
+        if command -v firewall-cmd &>/dev/null && systemctl is-active firewalld &>/dev/null; then
+            if firewall-cmd --query-port="$SSH_PORT/tcp" &>/dev/null; then
+                _green "✓ firewalld: SSH端口 $SSH_PORT 已开放"
+            else
+                _yellow "⚠ firewalld: SSH端口 $SSH_PORT 未开放"
+                _yellow "建议: firewall-cmd --permanent --add-port=$SSH_PORT/tcp && firewall-cmd --reload"
+                firewall_blocked=1
+            fi
+        fi
+        
+        # 4. 检查云服务商安全组（如果适用）
+        _yellow "4. 检查云服务商配置..."
+        if [ -f "/sys/class/dmi/id/product_name" ]; then
+            local product_name=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+            case "$product_name" in
+                *"Amazon EC2"*|*"AWS"*)
+                    _yellow "⚠ 检测到AWS EC2，请检查安全组是否开放SSH端口 $SSH_PORT"
+                    ;;
+                *"Google Compute Engine"*|*"GCP"*)
+                    _yellow "⚠ 检测到Google Cloud，请检查防火墙规则是否开放SSH端口 $SSH_PORT"
+                    ;;
+                *"Microsoft Corporation"*|*"Azure"*)
+                    _yellow "⚠ 检测到Azure，请检查网络安全组是否开放SSH端口 $SSH_PORT"
+                    ;;
+                *"Alibaba Cloud"*|*"Aliyun"*)
+                    _yellow "⚠ 检测到阿里云，请检查安全组是否开放SSH端口 $SSH_PORT"
+                    ;;
+                *)
+                    _green "✓ 物理服务器或本地虚拟机"
+                    ;;
+            esac
+        fi
+        
+        # 5. 使用外部服务检测端口开放性
+        _yellow "5. 使用外部服务检测端口开放性..."
+        if command -v curl &>/dev/null; then
+            # 使用在线端口检测服务
+            local port_check_url="https://www.yougetsignal.com/tools/open-ports/port.php"
+            _yellow "正在检测端口 $SSH_PORT 的开放性..."
+            
+            # 使用nmap检测（如果可用）
+            if command -v nmap &>/dev/null; then
+                _yellow "使用nmap检测本地端口..."
+                if nmap -p "$SSH_PORT" localhost 2>/dev/null | grep -q "open"; then
+                    _green "✓ nmap: 端口 $SSH_PORT 本地开放"
+                else
+                    _red "❌ nmap: 端口 $SSH_PORT 本地未开放"
+                fi
+            fi
+            
+            # 使用telnet测试（如果可用）
+            if command -v telnet &>/dev/null; then
+                _yellow "使用telnet测试连接..."
+                if timeout 3 telnet localhost "$SSH_PORT" 2>/dev/null | grep -q "Connected"; then
+                    _green "✓ telnet: 本地连接成功"
+                else
+                    _red "❌ telnet: 本地连接失败"
+                fi
+            fi
+        fi
+        
+        # 6. 生成SSH访问诊断报告
+        _yellow "6. 生成SSH访问诊断报告..."
+        local timestamp=$(date '+%Y%m%d_%H%M%S')
+        local ssh_report="$REPORT_DIR/ssh_access_diagnosis_$timestamp.txt"
+        
+        {
+            echo "SSH端口访问诊断报告"
+            echo "生成时间: $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "服务器IP: $server_ip"
+            echo "SSH端口: $SSH_PORT"
+            echo "=========================================="
+            echo
+            
+            echo "SSH服务状态:"
+            systemctl status ssh 2>/dev/null || systemctl status sshd 2>/dev/null || echo "SSH服务状态未知"
+            echo
+            
+            echo "端口监听状态:"
+            netstat -tlnp | grep ":$SSH_PORT "
+            echo
+            
+            echo "防火墙状态:"
+            if command -v iptables &>/dev/null; then
+                echo "iptables规则:"
+                iptables -L INPUT | grep -E "ACCEPT|DROP|REJECT"
+            fi
+            if command -v ufw &>/dev/null; then
+                echo "ufw状态:"
+                ufw status
+            fi
+            if command -v firewall-cmd &>/dev/null; then
+                echo "firewalld状态:"
+                firewall-cmd --list-all
+            fi
+            echo
+            
+            echo "SSH配置:"
+            if [ -f "/etc/ssh/sshd_config" ]; then
+                grep -E "^Port|^ListenAddress|^PermitRootLogin" /etc/ssh/sshd_config 2>/dev/null || echo "SSH配置读取失败"
+            fi
+            echo
+            
+            echo "诊断建议:"
+            if [ $firewall_blocked -eq 1 ]; then
+                echo "- 检查防火墙规则，确保SSH端口 $SSH_PORT 已开放"
+            fi
+            echo "- 检查云服务商安全组/防火墙规则"
+            echo "- 检查路由器端口转发设置"
+            echo "- 确认SSH服务正在运行"
+            echo "- 测试: ssh root@$server_ip -p $SSH_PORT"
+            
+        } > "$ssh_report"
+        
+        _green "✓ SSH访问诊断报告已生成: $ssh_report"
+        
+        # 7. 总结诊断结果
+        echo
+        _blue "=== SSH访问诊断总结 ==="
+        if [ $firewall_blocked -eq 0 ]; then
+            _green "✓ 本地SSH配置正常"
+            _yellow "⚠ 外网访问性需要进一步验证"
+            _yellow "建议: 从外网设备测试 ssh root@$server_ip -p $SSH_PORT"
+        else
+            _red "❌ 发现SSH访问问题"
+            _yellow "建议: 检查防火墙规则和云服务商配置"
+        fi
+        
+        log_message "SSH访问诊断完成，服务器IP: $server_ip, 端口: $SSH_PORT"
+        
     else
         _red "❌ 无法获取服务器IP地址"
+        log_message "无法获取服务器IP地址"
     fi
 }
 

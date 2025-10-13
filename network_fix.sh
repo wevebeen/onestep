@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.6"
+SCRIPT_VERSION="1.6.7"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -915,6 +915,58 @@ restore_network_config() {
         return 1
     fi
     
+    # 对比当前配置和备份配置
+    _blue "🔍 对比当前配置和备份配置..."
+    local changed_files=()
+    local backup_files=("hostname" "hosts" "interfaces" "resolv.conf")
+    
+    for file in "${backup_files[@]}"; do
+        local backup_file="$selected_backup/$file"
+        local current_file=""
+        
+        case "$file" in
+            "hostname")
+                current_file="/etc/hostname"
+                ;;
+            "hosts")
+                current_file="/etc/hosts"
+                ;;
+            "interfaces")
+                current_file="/etc/network/interfaces"
+                ;;
+            "resolv.conf")
+                current_file="/etc/resolv.conf"
+                ;;
+        esac
+        
+        if [ -f "$backup_file" ] && [ -f "$current_file" ]; then
+            if ! diff -q "$backup_file" "$current_file" >/dev/null 2>&1; then
+                changed_files+=("$file")
+                _yellow "📝 $file 有修改"
+            else
+                _green "✓ $file 无修改"
+            fi
+        elif [ -f "$backup_file" ] && [ ! -f "$current_file" ]; then
+            changed_files+=("$file (文件不存在)")
+            _yellow "📝 $file 当前不存在"
+        elif [ ! -f "$backup_file" ] && [ -f "$current_file" ]; then
+            changed_files+=("$file (备份不存在)")
+            _yellow "📝 $file 备份不存在"
+        fi
+    done
+    
+    if [ ${#changed_files[@]} -gt 0 ]; then
+        echo
+        _yellow "⚠️ 检测到以下文件有修改:"
+        for file in "${changed_files[@]}"; do
+            _yellow "   - $file"
+        done
+        echo
+    else
+        _green "✓ 所有文件都无修改"
+        echo
+    fi
+    
     # 执行恢复
     _green "正在恢复网络配置..."
     
@@ -1054,35 +1106,25 @@ restore_network_config() {
     
     log "恢复备份: $selected_backup"
     
-    # 询问是否启用文件保护
-    echo
-    _yellow "🔒 恢复完成，是否立即启用文件保护？"
-    echo -n "请输入选择 (Y/n): "
-    read -r protect_choice
-    protect_choice=$(echo "$protect_choice" | xargs | tr '[:upper:]' '[:lower:]')
+    # 自动启用文件保护
+    _blue "🔒 自动启用文件保护..."
+    local protected_files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
+    local protected_count=0
     
-    if [ "$protect_choice" != "n" ] && [ "$protect_choice" != "no" ]; then
-        _blue "🔒 启用文件保护..."
-        local protected_files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
-        local protected_count=0
-        
-        for file in "${protected_files[@]}"; do
-            if [ -f "$file" ] && command -v chattr >/dev/null 2>&1; then
-                if chattr +i "$file" 2>/dev/null; then
-                    _green "✓ 已保护: $file"
-                    ((protected_count++))
-                else
-                    _red "❌ 保护失败: $file"
-                fi
+    for file in "${protected_files[@]}"; do
+        if [ -f "$file" ] && command -v chattr >/dev/null 2>&1; then
+            if chattr +i "$file" 2>/dev/null; then
+                _green "✓ 已保护: $file"
+                ((protected_count++))
+            else
+                _red "❌ 保护失败: $file"
             fi
-        done
-        
-        if [ $protected_count -gt 0 ]; then
-            _green "✓ 已保护 $protected_count 个文件"
-            _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
         fi
-    else
-        _yellow "⚠️ 文件未设置保护，请注意安全"
+    done
+    
+    if [ $protected_count -gt 0 ]; then
+        _green "✓ 已保护 $protected_count 个文件"
+        _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
     fi
     
     echo
@@ -1163,7 +1205,7 @@ handle_menu_choice() {
             ;;
         "8")
             _green "感谢使用！"
-            return 0
+            exit 0
             ;;
         "")
             return 1

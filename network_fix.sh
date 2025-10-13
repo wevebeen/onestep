@@ -782,6 +782,14 @@ restore_network_config() {
         iptables-restore < "$selected_backup/iptables_rules.txt"
     fi
     
+    if [ -f "$selected_backup/ufw_status.txt" ]; then
+        _yellow "UFW状态文件已恢复，请手动检查并启用UFW"
+    fi
+    
+    if [ -f "$selected_backup/firewalld_config.txt" ]; then
+        _yellow "firewalld配置已恢复，请手动检查并重新加载"
+    fi
+    
     # 恢复DNS配置
     if [ -f "$selected_backup/resolv.conf" ]; then
         cp "$selected_backup/resolv.conf" /etc/
@@ -794,6 +802,71 @@ restore_network_config() {
     
     if [ -f "$selected_backup/hosts" ]; then
         cp "$selected_backup/hosts" /etc/
+    fi
+    
+    # 恢复网络转发配置
+    if [ -f "$selected_backup/ipv4_forward.txt" ]; then
+        echo "$(cat "$selected_backup/ipv4_forward.txt")" > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
+    fi
+    
+    if [ -f "$selected_backup/ipv6_forward.txt" ]; then
+        echo "$(cat "$selected_backup/ipv6_forward.txt")" > /proc/sys/net/ipv6/conf/all/forwarding 2>/dev/null || true
+    fi
+    
+    # 恢复SSH配置
+    if [ -f "$selected_backup/sshd_config" ]; then
+        cp "$selected_backup/sshd_config" /etc/ssh/
+        _yellow "SSH配置已恢复，请重启SSH服务"
+    fi
+    
+    # 恢复NTP配置
+    if [ -f "$selected_backup/ntp.conf" ]; then
+        cp "$selected_backup/ntp.conf" /etc/
+        _yellow "NTP配置已恢复，请重启NTP服务"
+    fi
+    
+    if [ -f "$selected_backup/chrony.conf" ]; then
+        cp "$selected_backup/chrony.conf" /etc/
+        _yellow "Chrony配置已恢复，请重启Chrony服务"
+    fi
+    
+    # 恢复网络代理配置
+    if [ -f "$selected_backup/environment" ]; then
+        cp "$selected_backup/environment" /etc/
+    fi
+    
+    # 恢复网络存储配置
+    if [ -f "$selected_backup/exports" ]; then
+        cp "$selected_backup/exports" /etc/
+        _yellow "NFS配置已恢复，请重启NFS服务"
+    fi
+    
+    if [ -f "$selected_backup/smb.conf" ]; then
+        cp "$selected_backup/smb.conf" /etc/samba/
+        _yellow "SMB配置已恢复，请重启SMB服务"
+    fi
+    
+    # 恢复SNMP配置
+    if [ -f "$selected_backup/snmpd.conf" ]; then
+        cp "$selected_backup/snmpd.conf" /etc/snmp/
+        _yellow "SNMP配置已恢复，请重启SNMP服务"
+    fi
+    
+    # 恢复网络管理器配置
+    if [ -d "$selected_backup/NetworkManager" ]; then
+        cp -r "$selected_backup/NetworkManager" /etc/
+        _yellow "NetworkManager配置已恢复，请重启NetworkManager服务"
+    fi
+    
+    # 恢复DHCP配置
+    if [ -f "$selected_backup/dhcpd.conf" ]; then
+        cp "$selected_backup/dhcpd.conf" /etc/dhcp/
+        _yellow "DHCP配置已恢复，请重启DHCP服务"
+    fi
+    
+    if [ -f "$selected_backup/dhcpcd.conf" ]; then
+        cp "$selected_backup/dhcpcd.conf" /etc/
+        _yellow "DHCP客户端配置已恢复，请重启DHCP客户端服务"
     fi
     
     _green "✓ 网络配置恢复完成"
@@ -866,7 +939,7 @@ main() {
         # 交互式菜单模式
         while true; do
             show_menu
-            echo -n "请输入选择 (1-5): "
+            echo -n "请输入选择 (1-6): "
             read choice
             choice=$(echo "$choice" | xargs)
             

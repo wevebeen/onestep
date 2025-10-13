@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.7.5"
+SCRIPT_VERSION="1.7.6"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -1205,295 +1205,321 @@ restore_network_config() {
     done
     echo
     
-    # 按分类恢复配置
-    _blue "📋 按分类恢复网络配置..."
+    # 恢复网络配置
+    _blue "📋 恢复网络配置..."
     echo
     
-    # 1. 基础系统配置
-    _yellow "1️⃣ 基础系统配置:"
+    # 基础系统配置
     if [ -f "$selected_backup/hostname" ]; then
         if cp "$selected_backup/hostname" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/hostname"
+            _green "✓ /etc/hostname"
             restored_files+=("/etc/hostname")
         else
-            _red "  ❌ /etc/hostname (恢复失败)"
+            _red "❌ /etc/hostname (恢复失败)"
+            restored_files+=("/etc/hostname (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/hosts" ]; then
         if cp "$selected_backup/hosts" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/hosts"
+            _green "✓ /etc/hosts"
             restored_files+=("/etc/hosts")
         else
-            _red "  ❌ /etc/hosts (恢复失败)"
+            _red "❌ /etc/hosts (恢复失败)"
+            restored_files+=("/etc/hosts (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/environment" ]; then
         if cp "$selected_backup/environment" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/environment"
+            _green "✓ /etc/environment"
             restored_files+=("/etc/environment")
         else
-            _red "  ❌ /etc/environment (恢复失败)"
+            _red "❌ /etc/environment (恢复失败)"
+            restored_files+=("/etc/environment (恢复失败)")
         fi
     fi
-    echo
     
-    # 2. 网络接口配置
-    _yellow "2️⃣ 网络接口配置:"
+    # 网络接口配置
     if [ -d "$selected_backup/netplan" ]; then
         if cp -r "$selected_backup/netplan" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/netplan/ (目录)"
+            _green "✓ /etc/netplan/ (目录)"
             restored_files+=("/etc/netplan")
         else
-            _red "  ❌ /etc/netplan/ (恢复失败)"
+            _red "❌ /etc/netplan/ (恢复失败)"
+            restored_files+=("/etc/netplan (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/interfaces" ]; then
         if cp "$selected_backup/interfaces" /etc/network/ 2>/dev/null; then
-            _green "  ✓ /etc/network/interfaces"
+            _green "✓ /etc/network/interfaces"
             restored_files+=("/etc/network/interfaces")
         else
-            _red "  ❌ /etc/network/interfaces (恢复失败)"
+            _red "❌ /etc/network/interfaces (恢复失败)"
+            restored_files+=("/etc/network/interfaces (恢复失败)")
         fi
     fi
     
     if [ -d "$selected_backup/NetworkManager" ]; then
         if cp -r "$selected_backup/NetworkManager" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/NetworkManager/ (目录)"
+            _green "✓ /etc/NetworkManager/ (目录)"
             restored_files+=("/etc/NetworkManager")
         else
-            _red "  ❌ /etc/NetworkManager/ (恢复失败)"
+            _red "❌ /etc/NetworkManager/ (恢复失败)"
+            restored_files+=("/etc/NetworkManager (恢复失败)")
         fi
     fi
-    echo
     
-    # 2.5. 恢复当前网络接口状态（包括secondary IP）
-    _yellow "2️⃣.5️⃣ 恢复网络接口状态:"
+    # 网络接口状态恢复
     if [ -f "$selected_backup/current_interfaces.txt" ]; then
-        _blue "  📋 检测到网络接口状态备份，正在恢复secondary IP地址..."
+        _blue "📋 检测到网络接口状态备份，正在恢复secondary IP地址..."
         
-        # 解析备份的网络接口状态，提取secondary IP
         local interface_name=""
         local primary_ip=""
         local secondary_ips=()
         
         while IFS= read -r line; do
-            # 检测接口名称
             if [[ "$line" =~ ^[0-9]+:[[:space:]]+([^:]+): ]]; then
                 interface_name="${BASH_REMATCH[1]}"
                 primary_ip=""
                 secondary_ips=()
             fi
             
-            # 检测primary IP
             if [[ "$line" =~ inet[[:space:]]+([0-9.]+/[0-9]+)[[:space:]]+scope[[:space:]]+global ]]; then
                 primary_ip="${BASH_REMATCH[1]}"
             fi
             
-            # 检测secondary IP
             if [[ "$line" =~ inet[[:space:]]+([0-9.]+/[0-9]+)[[:space:]]+scope[[:space:]]+global[[:space:]]+secondary ]]; then
                 secondary_ips+=("${BASH_REMATCH[1]}")
             fi
         done < "$selected_backup/current_interfaces.txt"
         
-        # 恢复secondary IP地址
         if [ ${#secondary_ips[@]} -gt 0 ]; then
-            _blue "  🔍 发现 ${#secondary_ips[@]} 个secondary IP地址需要恢复:"
+            _blue "🔍 发现 ${#secondary_ips[@]} 个secondary IP地址需要恢复:"
             for secondary_ip in "${secondary_ips[@]}"; do
                 local ip_addr=$(echo "$secondary_ip" | cut -d'/' -f1)
                 local cidr=$(echo "$secondary_ip" | cut -d'/' -f2)
                 
                 if command -v ip >/dev/null 2>&1; then
                     if ip addr add "$ip_addr/$cidr" dev "$interface_name" 2>/dev/null; then
-                        _green "  ✓ 已恢复secondary IP: $ip_addr/$cidr on $interface_name"
+                        _green "✓ 已恢复secondary IP: $ip_addr/$cidr on $interface_name"
                         restored_files+=("secondary_ip:$ip_addr/$cidr")
                     else
-                        _red "  ❌ 恢复secondary IP失败: $ip_addr/$cidr on $interface_name"
+                        _red "❌ 恢复secondary IP失败: $ip_addr/$cidr on $interface_name"
+                        restored_files+=("secondary_ip:$ip_addr/$cidr (恢复失败)")
                     fi
                 else
-                    _yellow "  ⚠️ 无法恢复secondary IP: $ip_addr/$cidr (ip命令不可用)"
+                    _yellow "⚠️ 无法恢复secondary IP: $ip_addr/$cidr (ip命令不可用)"
+                    restored_files+=("secondary_ip:$ip_addr/$cidr (跳过)")
                 fi
             done
         else
-            _blue "  ℹ️ 没有发现secondary IP地址"
+            _blue "ℹ️ 没有发现secondary IP地址"
         fi
-    else
-        _blue "  ℹ️ 没有网络接口状态备份文件"
     fi
-    echo
     
-    # 3. DNS配置
-    _yellow "3️⃣ DNS配置:"
+    # DNS配置
     if [ -f "$selected_backup/resolv.conf" ]; then
         if cp "$selected_backup/resolv.conf" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/resolv.conf"
+            _green "✓ /etc/resolv.conf"
             restored_files+=("/etc/resolv.conf")
         else
-            _red "  ❌ /etc/resolv.conf (恢复失败)"
+            _red "❌ /etc/resolv.conf (恢复失败)"
+            restored_files+=("/etc/resolv.conf (恢复失败)")
         fi
     fi
-    echo
     
-    # 4. 防火墙配置
-    _yellow "4️⃣ 防火墙配置:"
+    # 防火墙配置
     if [ -f "$selected_backup/iptables_rules.txt" ]; then
         if iptables-restore < "$selected_backup/iptables_rules.txt" 2>/dev/null; then
-            _green "  ✓ iptables规则"
+            _green "✓ iptables规则"
             restored_files+=("iptables_rules")
         else
-            _red "  ❌ iptables规则 (恢复失败)"
+            _red "❌ iptables规则 (恢复失败)"
+            restored_files+=("iptables_rules (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/iptables_nat.txt" ]; then
         if iptables-restore < "$selected_backup/iptables_nat.txt" 2>/dev/null; then
-            _green "  ✓ iptables NAT规则"
+            _green "✓ iptables NAT规则"
             restored_files+=("iptables_nat")
         else
-            _red "  ❌ iptables NAT规则 (恢复失败)"
+            _red "❌ iptables NAT规则 (恢复失败)"
+            restored_files+=("iptables_nat (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/iptables_mangle.txt" ]; then
         if iptables-restore < "$selected_backup/iptables_mangle.txt" 2>/dev/null; then
-            _green "  ✓ iptables MANGLE规则"
+            _green "✓ iptables MANGLE规则"
             restored_files+=("iptables_mangle")
         else
-            _red "  ❌ iptables MANGLE规则 (恢复失败)"
+            _red "❌ iptables MANGLE规则 (恢复失败)"
+            restored_files+=("iptables_mangle (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/ufw_status.txt" ]; then
-        _yellow "  ⚠️ UFW状态文件已恢复，请手动检查并启用UFW"
+        _yellow "⚠️ UFW状态文件已恢复，请手动检查并启用UFW"
         restored_files+=("ufw_status")
     fi
     
     if [ -f "$selected_backup/firewalld_config.txt" ]; then
-        _yellow "  ⚠️ firewalld配置已恢复，请手动检查并重新加载"
+        _yellow "⚠️ firewalld配置已恢复，请手动检查并重新加载"
         restored_files+=("firewalld_config")
     fi
-    echo
     
-    # 5. 网络转发配置
-    _yellow "5️⃣ 网络转发配置:"
+    # 网络转发配置
     if [ -f "$selected_backup/ipv4_forward.txt" ]; then
         if echo "$(cat "$selected_backup/ipv4_forward.txt")" > /proc/sys/net/ipv4/ip_forward 2>/dev/null; then
-            _green "  ✓ IPv4转发"
+            _green "✓ IPv4转发"
             restored_files+=("ipv4_forward")
         else
-            _red "  ❌ IPv4转发 (恢复失败)"
+            _red "❌ IPv4转发 (恢复失败)"
+            restored_files+=("ipv4_forward (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/ipv6_forward.txt" ]; then
         if echo "$(cat "$selected_backup/ipv6_forward.txt")" > /proc/sys/net/ipv6/conf/all/forwarding 2>/dev/null; then
-            _green "  ✓ IPv6转发"
+            _green "✓ IPv6转发"
             restored_files+=("ipv6_forward")
         else
-            _red "  ❌ IPv6转发 (恢复失败)"
+            _red "❌ IPv6转发 (恢复失败)"
+            restored_files+=("ipv6_forward (恢复失败)")
         fi
     fi
-    echo
     
-    # 6. SSH配置
-    _yellow "6️⃣ SSH配置:"
+    # SSH配置
     if [ -f "$selected_backup/sshd_config" ]; then
         if cp "$selected_backup/sshd_config" /etc/ssh/ 2>/dev/null; then
-            _green "  ✓ /etc/ssh/sshd_config"
+            _green "✓ /etc/ssh/sshd_config"
             restored_files+=("/etc/ssh/sshd_config")
         else
-            _red "  ❌ /etc/ssh/sshd_config (恢复失败)"
+            _red "❌ /etc/ssh/sshd_config (恢复失败)"
+            restored_files+=("/etc/ssh/sshd_config (恢复失败)")
         fi
     fi
-    echo
     
-    # 7. 时间同步配置
-    _yellow "7️⃣ 时间同步配置:"
+    # 时间同步配置
     if [ -f "$selected_backup/ntp.conf" ]; then
         if cp "$selected_backup/ntp.conf" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/ntp.conf"
+            _green "✓ /etc/ntp.conf"
             restored_files+=("/etc/ntp.conf")
         else
-            _red "  ❌ /etc/ntp.conf (恢复失败)"
+            _red "❌ /etc/ntp.conf (恢复失败)"
+            restored_files+=("/etc/ntp.conf (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/chrony.conf" ]; then
         if cp "$selected_backup/chrony.conf" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/chrony.conf"
+            _green "✓ /etc/chrony.conf"
             restored_files+=("/etc/chrony.conf")
         else
-            _red "  ❌ /etc/chrony.conf (恢复失败)"
+            _red "❌ /etc/chrony.conf (恢复失败)"
+            restored_files+=("/etc/chrony.conf (恢复失败)")
         fi
     fi
-    echo
     
-    # 8. 网络存储配置
-    _yellow "8️⃣ 网络存储配置:"
+    # 网络存储配置
     if [ -f "$selected_backup/exports" ]; then
         if cp "$selected_backup/exports" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/exports"
+            _green "✓ /etc/exports"
             restored_files+=("/etc/exports")
         else
-            _red "  ❌ /etc/exports (恢复失败)"
+            _red "❌ /etc/exports (恢复失败)"
+            restored_files+=("/etc/exports (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/smb.conf" ]; then
         if cp "$selected_backup/smb.conf" /etc/samba/ 2>/dev/null; then
-            _green "  ✓ /etc/samba/smb.conf"
+            _green "✓ /etc/samba/smb.conf"
             restored_files+=("/etc/samba/smb.conf")
         else
-            _red "  ❌ /etc/samba/smb.conf (恢复失败)"
+            _red "❌ /etc/samba/smb.conf (恢复失败)"
+            restored_files+=("/etc/samba/smb.conf (恢复失败)")
         fi
     fi
-    echo
     
-    # 9. 网络监控配置
-    _yellow "9️⃣ 网络监控配置:"
+    # 网络监控配置
     if [ -f "$selected_backup/snmpd.conf" ]; then
         if cp "$selected_backup/snmpd.conf" /etc/snmp/ 2>/dev/null; then
-            _green "  ✓ /etc/snmp/snmpd.conf"
+            _green "✓ /etc/snmp/snmpd.conf"
             restored_files+=("/etc/snmp/snmpd.conf")
         else
-            _red "  ❌ /etc/snmp/snmpd.conf (恢复失败)"
+            _red "❌ /etc/snmp/snmpd.conf (恢复失败)"
+            restored_files+=("/etc/snmp/snmpd.conf (恢复失败)")
         fi
     fi
-    echo
     
-    # 10. DHCP配置
-    _yellow "🔟 DHCP配置:"
+    # DHCP配置
     if [ -f "$selected_backup/dhcpd.conf" ]; then
         if cp "$selected_backup/dhcpd.conf" /etc/dhcp/ 2>/dev/null; then
-            _green "  ✓ /etc/dhcp/dhcpd.conf"
+            _green "✓ /etc/dhcp/dhcpd.conf"
             restored_files+=("/etc/dhcp/dhcpd.conf")
         else
-            _red "  ❌ /etc/dhcp/dhcpd.conf (恢复失败)"
+            _red "❌ /etc/dhcp/dhcpd.conf (恢复失败)"
+            restored_files+=("/etc/dhcp/dhcpd.conf (恢复失败)")
         fi
     fi
     
     if [ -f "$selected_backup/dhcpcd.conf" ]; then
         if cp "$selected_backup/dhcpcd.conf" /etc/ 2>/dev/null; then
-            _green "  ✓ /etc/dhcpcd.conf"
+            _green "✓ /etc/dhcpcd.conf"
             restored_files+=("/etc/dhcpcd.conf")
         else
-            _red "  ❌ /etc/dhcpcd.conf (恢复失败)"
+            _red "❌ /etc/dhcpcd.conf (恢复失败)"
+            restored_files+=("/etc/dhcpcd.conf (恢复失败)")
         fi
     fi
     echo
     
     # 显示恢复总结
     _blue "📊 恢复总结:"
-    if [ ${#restored_files[@]} -gt 0 ]; then
-        _green "✓ 成功恢复 ${#restored_files[@]} 个配置项:"
-        for file in "${restored_files[@]}"; do
+    
+    # 统计已恢复的项目
+    local restored_count=0
+    local skipped_count=0
+    local restored_list=()
+    local skipped_list=()
+    
+    # 分析restored_files数组，分类统计
+    for file in "${restored_files[@]}"; do
+        if [[ "$file" == *"恢复失败"* ]] || [[ "$file" == *"失败"* ]]; then
+            skipped_list+=("$file")
+            ((skipped_count++))
+        else
+            restored_list+=("$file")
+            ((restored_count++))
+        fi
+    done
+    
+    # 显示已恢复的项目
+    if [ $restored_count -gt 0 ]; then
+        _green "✓ 已恢复 ($restored_count 项):"
+        for file in "${restored_list[@]}"; do
             echo "  • $file"
         done
-    else
+    fi
+    
+    # 显示跳过的项目
+    if [ $skipped_count -gt 0 ]; then
+        echo
+        _blue "⏭️ 跳过 ($skipped_count 项):"
+        for file in "${skipped_list[@]}"; do
+            echo "  • $file"
+        done
+    fi
+    
+    # 如果没有恢复任何项目
+    if [ $restored_count -eq 0 ] && [ $skipped_count -eq 0 ]; then
         _yellow "⚠️ 没有恢复任何配置项"
     fi
+    
     echo
     
     _green "✓ 网络配置恢复完成"

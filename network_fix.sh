@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.7.7"
+SCRIPT_VERSION="1.7.8"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -1502,18 +1502,18 @@ restore_network_config() {
     # 显示恢复总结
     _blue "📊 恢复总结:"
     
-    # 显示已恢复的项目
+    # 显示成功的项目
     if [ ${#restored_files[@]} -gt 0 ]; then
-        _green "✓ 已恢复 (${#restored_files[@]} 项):"
+        _green "✓ 成功 (${#restored_files[@]} 项):"
         for file in "${restored_files[@]}"; do
             echo "  • $file"
         done
     fi
     
-    # 显示跳过的项目（失败的项目）
+    # 显示失败的项目
     if [ ${#failed_files[@]} -gt 0 ]; then
         echo
-        _blue "⏭️ 跳过 (${#failed_files[@]} 项):"
+        _red "❌ 失败 (${#failed_files[@]} 项):"
         for i in "${!failed_files[@]}"; do
             echo "  • ${failed_files[$i]} - ${failed_reasons[$i]}"
         done

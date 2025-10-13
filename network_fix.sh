@@ -85,6 +85,9 @@ create_network_backup() {
     echo -n "请输入备份备注: "
     read backup_note
     
+    # 去除前后空格
+    backup_note=$(echo "$backup_note" | xargs)
+    
     if [ -z "$backup_note" ]; then
         backup_note="手动备份"
     fi
@@ -245,6 +248,9 @@ restore_network_config() {
     echo -n "请选择要恢复的备份 (1-$backup_count): "
     read choice
     
+    # 去除前后空格
+    choice=$(echo "$choice" | xargs)
+    
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "$backup_count" ]; then
         _red "❌ 无效的选择"
         return 1
@@ -301,6 +307,9 @@ restore_network_config() {
     _red "⚠️  警告: 此操作将修改网络配置，可能导致网络连接中断！"
     echo -n "确认要恢复网络配置吗？(yes/no): "
     read confirm
+    
+    # 去除前后空格并转换为小写
+    confirm=$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')
     
     if [ "$confirm" != "yes" ]; then
         _yellow "❌ 用户取消恢复操作"

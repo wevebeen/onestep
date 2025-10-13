@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.7.1"
+SCRIPT_VERSION="1.7.2"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -689,8 +689,8 @@ view_backup_list() {
             local backup_files=""
             
             if [ -f "$backup_info_file" ]; then
-                backup_time=$(grep "备份时间:" "$backup_info_file" | cut -d ':' -f 2- | xargs)
-                backup_note=$(grep "备份备注:" "$backup_info_file" | cut -d ':' -f 2- | xargs)
+                backup_time=$(sed -n 's/备份时间: *//p' "$backup_info_file" | head -1)
+                backup_note=$(sed -n 's/备份备注: *//p' "$backup_info_file" | head -1)
             fi
             
             # 统计备份文件数量
@@ -785,7 +785,7 @@ restore_network_config() {
             backup_name=$(basename "$backup")
             backup_time=$(echo "$backup_name" | sed 's/backup_//')
             if [ -f "$backup/backup_info.txt" ]; then
-                backup_note=$(grep "备份备注:" "$backup/backup_info.txt" | cut -d: -f2- | xargs)
+                backup_note=$(sed -n 's/备份备注: *//p' "$backup/backup_info.txt" | head -1)
                 echo "  $i. $backup_name - $backup_note"
             else
                 echo "  $i. $backup_name"
@@ -1167,32 +1167,34 @@ restore_network_config() {
         _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
     fi
     
-    # 重启相关服务
-    _blue "🔄 重启相关网络服务..."
+    # 强制重启相关服务
+    _blue "🔄 强制重启相关网络服务..."
     local services=("networking" "NetworkManager" "ssh" "sshd" "chrony" "ntp" "smbd" "nmbd" "snmpd" "dhcpd" "dhcpcd")
     local restarted_count=0
+    local skipped_count=0
     
     for service in "${services[@]}"; do
+        # 检查服务是否存在
         if systemctl list-unit-files | grep -q "^${service}\.service"; then
-            if systemctl is-active --quiet "$service"; then
-                if systemctl restart "$service" 2>/dev/null; then
-                    _green "✓ 已重启: $service"
-                    ((restarted_count++))
-                else
-                    _red "❌ 重启失败: $service"
-                fi
+            # 强制重启服务，不管当前状态
+            echo "正在重启服务: $service"
+            if systemctl restart "$service" 2>/dev/null; then
+                _green "✓ 已重启: $service"
+                ((restarted_count++))
             else
-                _blue "⏭️ 跳过: $service (服务未运行)"
+                _red "❌ 重启失败: $service"
             fi
         else
             _blue "⏭️ 跳过: $service (服务不存在)"
+            ((skipped_count++))
         fi
     done
     
-    if [ $restarted_count -gt 0 ]; then
-        _green "✓ 已重启 $restarted_count 个服务"
-    else
-        _yellow "⚠️ 没有服务需要重启"
+    echo
+    _green "✓ 服务重启完成"
+    _green "✓ 已重启 $restarted_count 个服务"
+    if [ $skipped_count -gt 0 ]; then
+        _blue "⏭️ 跳过 $skipped_count 个不存在的服务"
     fi
     
     echo

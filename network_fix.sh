@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.3"
+SCRIPT_VERSION="1.6.4"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -47,6 +47,40 @@ check_environment() {
     _blue "   - 如果遇到权限问题，请手动复制备份文件到对应位置"
     echo
     
+    # 检查关键文件权限
+    check_file_permissions() {
+        local files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
+        local protected_files=()
+        
+        for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+                # 检查文件是否可写
+                if [ ! -w "$file" ]; then
+                    protected_files+=("$file")
+                fi
+                
+                # 检查文件属性
+                if command -v lsattr >/dev/null 2>&1; then
+                    local attrs=$(lsattr "$file" 2>/dev/null | cut -d' ' -f1)
+                    if [[ "$attrs" == *"i"* ]]; then
+                        protected_files+=("$file (不可变)")
+                    fi
+                fi
+            fi
+        done
+        
+        if [ ${#protected_files[@]} -gt 0 ]; then
+            _yellow "⚠️ 检测到受保护的文件:"
+            for file in "${protected_files[@]}"; do
+                _yellow "   - $file"
+            done
+            _yellow "💡 建议在恢复前先解除保护: chattr -i <文件>"
+            echo
+        fi
+    }
+    
+    check_file_permissions
+    
     # 创建必要目录
     mkdir -p "$BACKUP_DIR"
     
@@ -66,7 +100,8 @@ show_menu() {
     echo "3. 检测22端口"
     echo "4. 恢复网络配置"
     echo "5. 查看备份列表"
-    echo "6. 退出"
+    echo "6. 修复权限问题"
+    echo "7. 退出"
     echo
 }
 
@@ -722,6 +757,64 @@ view_backup_list() {
     return 1
 }
 
+# 6. 修复权限问题
+fix_permissions() {
+    _blue "=== 修复权限问题 ==="
+    
+    local files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
+    local fixed_count=0
+    
+    _blue "🔍 检查文件权限..."
+    for file in "${files[@]}"; do
+        if [ -f "$file" ]; then
+            _blue "检查: $file"
+            
+            # 检查文件属性
+            if command -v lsattr >/dev/null 2>&1; then
+                local attrs=$(lsattr "$file" 2>/dev/null | cut -d' ' -f1)
+                if [[ "$attrs" == *"i"* ]]; then
+                    _yellow "  - 文件被标记为不可变"
+                    if chattr -i "$file" 2>/dev/null; then
+                        _green "  ✓ 已解除不可变属性"
+                        ((fixed_count++))
+                    else
+                        _red "  ❌ 解除不可变属性失败"
+                    fi
+                else
+                    _green "  ✓ 文件属性正常"
+                fi
+            fi
+            
+            # 检查文件权限
+            if [ ! -w "$file" ]; then
+                _yellow "  - 文件不可写"
+                if chmod 644 "$file" 2>/dev/null; then
+                    _green "  ✓ 已修复文件权限"
+                    ((fixed_count++))
+                else
+                    _red "  ❌ 修复文件权限失败"
+                fi
+            else
+                _green "  ✓ 文件权限正常"
+            fi
+        else
+            _yellow "  - 文件不存在: $file"
+        fi
+        echo
+    done
+    
+    if [ $fixed_count -gt 0 ]; then
+        _green "✓ 已修复 $fixed_count 个权限问题"
+    else
+        _green "✓ 所有文件权限正常"
+    fi
+    
+    echo
+    echo -n "按回车键继续..."
+    read
+    return 1
+}
+
 # 4. 恢复网络配置
 restore_network_config() {
     _blue "=== 恢复网络配置 ==="
@@ -780,6 +873,16 @@ restore_network_config() {
     
     # 执行恢复
     _green "正在恢复网络配置..."
+    
+    # 尝试解除文件保护
+    _blue "🔓 尝试解除文件保护..."
+    local protected_files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
+    for file in "${protected_files[@]}"; do
+        if [ -f "$file" ] && command -v chattr >/dev/null 2>&1; then
+            chattr -i "$file" 2>/dev/null && _green "✓ 已解除 $file 的保护" || true
+        fi
+    done
+    echo
     
     # 恢复网络接口配置
     if [ -d "$selected_backup/netplan" ]; then
@@ -895,6 +998,16 @@ restore_network_config() {
     _green "✓ 网络配置恢复完成"
     _yellow "⚠️ 建议重启网络服务或重启系统以确保配置生效"
     
+    # 显示手动恢复提示
+    echo
+    _blue "📋 如果某些文件恢复失败，可以手动执行以下命令:"
+    _blue "   sudo cp $selected_backup/hostname /etc/hostname"
+    _blue "   sudo cp $selected_backup/hosts /etc/hosts"
+    _blue "   sudo cp $selected_backup/interfaces /etc/network/interfaces"
+    _blue "   sudo cp $selected_backup/resolv.conf /etc/resolv.conf"
+    _blue "   sudo systemctl restart networking"
+    echo
+    
     log "恢复备份: $selected_backup"
 }
 
@@ -922,6 +1035,10 @@ handle_menu_choice() {
             return 1
             ;;
         "6")
+            fix_permissions
+            return 1
+            ;;
+        "7")
             _green "感谢使用！"
             return 0
             ;;
@@ -952,6 +1069,7 @@ show_help() {
     echo "  $0 check    - 检测22端口"
     echo "  $0 restore  - 恢复网络配置"
     echo "  $0 list     - 查看备份列表"
+    echo "  $0 fix      - 修复权限问题"
     echo "  $0 help     - 显示帮助信息"
     echo
 }
@@ -966,7 +1084,7 @@ main() {
         # 交互式菜单模式
         while true; do
             show_menu
-            echo -n "请输入选择 (1-6): "
+            echo -n "请输入选择 (1-7): "
             read choice
             choice=$(echo "$choice" | xargs)
             
@@ -991,6 +1109,9 @@ main() {
                    ;;
                "list")
                    view_backup_list
+                   ;;
+               "fix")
+                   fix_permissions
                    ;;
                "help")
                    show_help

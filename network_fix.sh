@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.7.3"
+SCRIPT_VERSION="1.7.4"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -505,6 +505,15 @@ backup_network_config() {
         cp /etc/network/interfaces "$backup_path/"
     fi
     
+    # 备份当前网络接口状态（包括secondary IP）
+    if command -v ip >/dev/null 2>&1; then
+        ip addr show > "$backup_path/current_interfaces.txt"
+        ip route show > "$backup_path/current_routes.txt"
+    elif command -v ifconfig >/dev/null 2>&1; then
+        ifconfig -a > "$backup_path/current_interfaces.txt"
+        route -n > "$backup_path/current_routes.txt"
+    fi
+    
     # 备份防火墙配置
     if command -v ufw >/dev/null 2>&1; then
         ufw status > "$backup_path/ufw_status.txt"
@@ -826,7 +835,7 @@ restore_network_config() {
     # 对比当前配置和备份配置
     _blue "🔍 对比当前配置和备份配置..."
     local changed_files=()
-    local backup_files=("hostname" "hosts" "interfaces" "resolv.conf" "sshd_config" "ntp.conf" "chrony.conf" "environment" "exports" "smb.conf" "snmpd.conf" "dhcpd.conf" "dhcpcd.conf")
+    local backup_files=("hostname" "hosts" "interfaces" "resolv.conf" "sshd_config" "ntp.conf" "chrony.conf" "environment" "exports" "smb.conf" "snmpd.conf" "dhcpd.conf" "dhcpcd.conf" "ufw_status.txt" "iptables_rules.txt" "iptables_nat.txt" "iptables_mangle.txt" "firewalld_config.txt" "current_interfaces.txt" "current_routes.txt")
     local backup_dirs=("netplan" "NetworkManager")
     
     # 检查文件
@@ -965,7 +974,7 @@ restore_network_config() {
     
     # 删除备份不存在但当前存在的文件
     _blue "🗑️ 删除备份不存在但当前存在的文件..."
-    local backup_files=("hostname" "hosts" "interfaces" "resolv.conf" "sshd_config" "ntp.conf" "chrony.conf" "environment" "exports" "smb.conf" "snmpd.conf" "dhcpd.conf" "dhcpcd.conf")
+    local backup_files=("hostname" "hosts" "interfaces" "resolv.conf" "sshd_config" "ntp.conf" "chrony.conf" "environment" "exports" "smb.conf" "snmpd.conf" "dhcpd.conf" "dhcpcd.conf" "ufw_status.txt" "iptables_rules.txt" "iptables_nat.txt" "iptables_mangle.txt" "firewalld_config.txt" "current_interfaces.txt" "current_routes.txt")
     
     for file in "${backup_files[@]}"; do
         local backup_file="$selected_backup/$file"
@@ -1085,6 +1094,61 @@ restore_network_config() {
         else
             _red "  ❌ /etc/NetworkManager/ (恢复失败)"
         fi
+    fi
+    echo
+    
+    # 2.5. 恢复当前网络接口状态（包括secondary IP）
+    _yellow "2️⃣.5️⃣ 恢复网络接口状态:"
+    if [ -f "$selected_backup/current_interfaces.txt" ]; then
+        _blue "  📋 检测到网络接口状态备份，正在恢复secondary IP地址..."
+        
+        # 解析备份的网络接口状态，提取secondary IP
+        local interface_name=""
+        local primary_ip=""
+        local secondary_ips=()
+        
+        while IFS= read -r line; do
+            # 检测接口名称
+            if [[ "$line" =~ ^[0-9]+:[[:space:]]+([^:]+): ]]; then
+                interface_name="${BASH_REMATCH[1]}"
+                primary_ip=""
+                secondary_ips=()
+            fi
+            
+            # 检测primary IP
+            if [[ "$line" =~ inet[[:space:]]+([0-9.]+/[0-9]+)[[:space:]]+scope[[:space:]]+global ]]; then
+                primary_ip="${BASH_REMATCH[1]}"
+            fi
+            
+            # 检测secondary IP
+            if [[ "$line" =~ inet[[:space:]]+([0-9.]+/[0-9]+)[[:space:]]+scope[[:space:]]+global[[:space:]]+secondary ]]; then
+                secondary_ips+=("${BASH_REMATCH[1]}")
+            fi
+        done < "$selected_backup/current_interfaces.txt"
+        
+        # 恢复secondary IP地址
+        if [ ${#secondary_ips[@]} -gt 0 ]; then
+            _blue "  🔍 发现 ${#secondary_ips[@]} 个secondary IP地址需要恢复:"
+            for secondary_ip in "${secondary_ips[@]}"; do
+                local ip_addr=$(echo "$secondary_ip" | cut -d'/' -f1)
+                local cidr=$(echo "$secondary_ip" | cut -d'/' -f2)
+                
+                if command -v ip >/dev/null 2>&1; then
+                    if ip addr add "$ip_addr/$cidr" dev "$interface_name" 2>/dev/null; then
+                        _green "  ✓ 已恢复secondary IP: $ip_addr/$cidr on $interface_name"
+                        restored_files+=("secondary_ip:$ip_addr/$cidr")
+                    else
+                        _red "  ❌ 恢复secondary IP失败: $ip_addr/$cidr on $interface_name"
+                    fi
+                else
+                    _yellow "  ⚠️ 无法恢复secondary IP: $ip_addr/$cidr (ip命令不可用)"
+                fi
+            done
+        else
+            _blue "  ℹ️ 没有发现secondary IP地址"
+        fi
+    else
+        _blue "  ℹ️ 没有网络接口状态备份文件"
     fi
     echo
     

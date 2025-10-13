@@ -2,15 +2,15 @@
 
 ## 📋 版本信息
 
-- **当前版本**: v1.0.5
+- **当前版本**: v1.0.4
 - **构建时间**: 2025-10-13 00:00:00
 - **最后更新**: 重置为初始版本，删除多余脚本
 
 ## 📁 脚本文件说明
 
-本项目提供两个主要脚本：
+本项目提供PVE一键安装脚本：
 
-### pve_install.sh - PVE一键安装脚本 (v1.4.0)
+### pve_install.sh - 主安装脚本 (v1.4.0)
 - **功能全面**：包含完整的日志记录、错误处理、状态检测
 - **适用场景**：生产环境、问题排查、开发调试
 - **特点**：
@@ -19,18 +19,6 @@
   - 执行流程跟踪
   - 错误分析
   - 安装结果验证
-
-### network_fix.sh - 网络环境检测与修复脚本 (v1.0.0)
-- **功能全面**：网络检测、备份、诊断、修复一体化
-- **适用场景**：服务器网络故障排查、SSH连接问题诊断
-- **特点**：
-  - 初始网络环境备份（一次性）
-  - 当前网络状态备份（每次更新）
-  - 全面网络检测（接口、防火墙、DNS、服务）
-  - 自动故障诊断和修复
-  - SSH端口外网访问检测
-  - 详细报告生成
-  - 云服务商环境识别
 
 ## 🔧 版本管理
 
@@ -78,11 +66,11 @@ git push origin main  # 自动递增版本号
 
 ## 使用方法
 
-### PVE安装脚本
+### 推荐使用方式
 
 **推荐使用**：
 ```bash
-# 下载并执行PVE安装脚本
+# 下载并执行主安装脚本
 curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/pve_install.sh -o pve_install.sh && chmod +x pve_install.sh && bash pve_install.sh
 ```
 
@@ -90,26 +78,6 @@ curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/pve_install.sh -
 ```bash
 # 直接执行（无需下载文件）
 bash <(curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/pve_install.sh)
-```
-
-### 网络修复脚本
-
-**推荐使用**：
-```bash
-# 下载并执行网络修复脚本
-curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh -o network_fix.sh && chmod +x network_fix.sh && sudo bash network_fix.sh
-```
-
-**一键执行**：
-```bash
-# 直接执行（推荐方式）
-curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash
-```
-
-**备用方式**：
-```bash
-# 如果上述方式有问题，使用下载后执行
-wget -O network_fix.sh https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh && chmod +x network_fix.sh && sudo bash network_fix.sh
 ```
 
 ## 系统要求
@@ -195,46 +163,22 @@ bash pve_install.sh
 
 ## 安装后配置
 
-### PVE配置
-
-**访问PVE**：
+### 访问PVE
 - **Web界面**：https://服务器IP:8006
 - **用户名**：root
 - **密码**：服务器root密码
 
-**基本配置**：
+### 基本配置
 1. **更新系统**：在PVE Web界面中更新系统
 2. **配置存储**：添加存储池
 3. **网络配置**：检查网络设置
 4. **创建虚拟机**：开始使用PVE
-
-### 网络修复脚本配置
-
-**脚本功能**：
-- **初始备份**：首次运行创建网络环境备份
-- **当前备份**：每次执行更新网络状态
-- **全面检测**：网络接口、防火墙、DNS、服务状态
-- **故障诊断**：自动分析网络问题
-- **自动修复**：修复常见网络问题
-- **SSH检测**：检测SSH端口外网访问性
-
-**输出文件**：
-- `network_fix.log` - 执行日志
-- `network_backups/` - 备份目录
-- `network_reports/` - 报告目录
-
-**SSH端口检测**：
-- 支持自定义SSH端口（默认22）
-- 自动检测云服务商环境（AWS/GCP/Azure/阿里云）
-- 检查防火墙规则（iptables/ufw/firewalld）
-- 生成详细的SSH访问诊断报告
 
 ### 安全建议
 1. **更改默认密码**：修改root密码
 2. **配置防火墙**：限制访问端口
 3. **定期备份**：备份重要配置
 4. **监控系统**：监控系统状态
-5. **定期网络检查**：使用network_fix.sh检查网络状态
 
 ## 技术支持
 
@@ -266,18 +210,59 @@ pvesm status
 3. 错误信息截图
 4. 执行的具体命令
 
+## network_fix.sh - 网络环境检测与修复脚本 (v1.1.0)
+
+### 功能特性
+- **交互式菜单系统**：提供6个功能选项的用户友好界面
+- **带备注的网络配置备份**：支持自定义备份备注信息
+- **网络配置查看**：显示当前网络配置和备份列表
+- **智能网络配置恢复**：显示变动修改并确认后恢复
+- **SSH端口检测优化**：仅显示成功的检测结果
+- **命令行参数支持**：支持直接执行指定功能
+- **全面的网络诊断**：检测网络接口、路由、DNS、防火墙等
+- **第三方API端口检测**：支持TCP/UDP端口外网访问性检测
+- **云服务商环境检测**：自动识别AWS、GCP、Azure、阿里云等
+- **详细的诊断报告**：生成完整的网络状态和故障报告
+
+### 使用方法
+```bash
+# 交互式菜单模式
+curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash
+
+# 直接执行功能
+curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash backup
+curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash view
+curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash restore
+curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash diagnose
+curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash ssh
+```
+
+### 菜单选项
+1. **备份网络配置（带备注）** - 创建带自定义备注的网络配置备份
+2. **查看网络配置和备份** - 显示当前配置和备份列表
+3. **恢复网络配置** - 选择备份并恢复，显示变动修改
+4. **网络诊断和修复** - 全面的网络问题诊断和修复
+5. **SSH端口检测** - 检测SSH端口外网访问性（仅显示成功）
+6. **退出** - 退出脚本
+
 ## 更新日志
 
+### v1.1.0 (2025-01-15)
+- ✅ 添加交互式菜单系统
+- ✅ 实现带备注的网络配置备份功能
+- ✅ 添加网络配置查看功能
+- ✅ 实现智能网络配置恢复功能
+- ✅ 优化SSH端口检测，仅显示成功结果
+- ✅ 支持命令行参数直接执行功能
+- ✅ 添加用户确认机制防止误操作
+- ✅ 完善备份信息记录和错误处理
+
 ### v1.0.5 (2025-01-15)
-- ✅ 添加网络环境检测与修复脚本 network_fix.sh
-- ✅ 支持初始网络环境备份（一次性）
-- ✅ 支持当前网络状态备份（每次更新）
-- ✅ 全面网络检测：接口、防火墙、DNS、服务状态
-- ✅ 自动故障诊断和修复
-- ✅ SSH端口外网访问检测
-- ✅ 云服务商环境识别（AWS/GCP/Azure/阿里云）
-- ✅ 详细报告生成
-- ✅ 更新README文档
+- ✅ 添加网络环境检测与修复脚本
+- ✅ 支持全面的网络诊断和修复功能
+- ✅ 集成第三方API端口检测
+- ✅ 支持云服务商环境检测
+- ✅ 生成详细的诊断报告
 
 ### v1.0 (2025-01-15)
 - ✅ 初始版本发布

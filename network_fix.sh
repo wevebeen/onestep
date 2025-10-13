@@ -4,12 +4,13 @@
 # 支持初始备份、当前备份、故障诊断和网络修复
 
 # 版本信息
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.2"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
 # 脚本配置
 SSH_PORT="22"
+SSH_PROTOCOL="tcp"  # SSH使用TCP协议
 BACKUP_DIR="network_backups"
 REPORT_DIR="network_reports"
 LOG_FILE="network_fix.log"
@@ -404,6 +405,7 @@ test_external_ssh_access() {
     if [ -n "$server_ip" ]; then
         _green "服务器IP: $server_ip"
         _green "SSH访问地址: ssh root@$server_ip -p $SSH_PORT"
+        _blue "协议类型: $SSH_PROTOCOL (SSH使用TCP协议，端口22是TCP端口)"
         echo
         
         # 1. 检查SSH服务状态
@@ -489,94 +491,119 @@ test_external_ssh_access() {
         
         # 5. 使用第三方API检测端口开放性
         _yellow "5. 使用第三方API检测端口开放性..."
+        _blue "检测协议: $SSH_PROTOCOL (SSH使用TCP协议)"
         
         # 使用在线端口检测服务
         if command -v curl &>/dev/null; then
-            _yellow "正在使用第三方API检测端口 $SSH_PORT..."
+            _yellow "正在使用第三方API检测TCP端口 $SSH_PORT..."
             
-            # 方法1: 使用canyouseeme.org API
+            # 方法1: 使用canyouseeme.org API (TCP检测)
             local canyouseeme_result=$(curl -s "http://canyouseeme.org/api/port/$SSH_PORT" 2>/dev/null)
             if [ -n "$canyouseeme_result" ]; then
                 if echo "$canyouseeme_result" | grep -q "open\|success"; then
-                    _green "✓ canyouseeme.org: 端口 $SSH_PORT 外网可访问"
+                    _green "✓ canyouseeme.org: TCP端口 $SSH_PORT 外网可访问"
                 else
-                    _yellow "⚠ canyouseeme.org: 端口 $SSH_PORT 外网访问受限"
+                    _yellow "⚠ canyouseeme.org: TCP端口 $SSH_PORT 外网访问受限"
                 fi
             fi
             
-            # 方法2: 使用portchecker.co API
+            # 方法2: 使用portchecker.co API (TCP检测)
             local portchecker_result=$(curl -s "https://portchecker.co/check" -d "port=$SSH_PORT" 2>/dev/null)
             if [ -n "$portchecker_result" ]; then
                 if echo "$portchecker_result" | grep -q "open\|accessible"; then
-                    _green "✓ portchecker.co: 端口 $SSH_PORT 外网可访问"
+                    _green "✓ portchecker.co: TCP端口 $SSH_PORT 外网可访问"
                 else
-                    _yellow "⚠ portchecker.co: 端口 $SSH_PORT 外网访问受限"
+                    _yellow "⚠ portchecker.co: TCP端口 $SSH_PORT 外网访问受限"
                 fi
             fi
             
-            # 方法3: 使用whatismyipaddress.com端口检测
+            # 方法3: 使用whatismyipaddress.com端口检测 (TCP检测)
             local wmipa_result=$(curl -s "https://whatismyipaddress.com/port-scanner" -d "port=$SSH_PORT" 2>/dev/null)
             if [ -n "$wmipa_result" ]; then
                 if echo "$wmipa_result" | grep -q "open\|accessible"; then
-                    _green "✓ whatismyipaddress.com: 端口 $SSH_PORT 外网可访问"
+                    _green "✓ whatismyipaddress.com: TCP端口 $SSH_PORT 外网可访问"
                 else
-                    _yellow "⚠ whatismyipaddress.com: 端口 $SSH_PORT 外网访问受限"
+                    _yellow "⚠ whatismyipaddress.com: TCP端口 $SSH_PORT 外网访问受限"
                 fi
             fi
             
-            # 方法4: 使用在线端口扫描工具
+            # 方法4: 使用在线端口扫描工具 (TCP检测)
             _yellow "使用在线端口扫描工具..."
             local portscan_url="https://www.yougetsignal.com/tools/open-ports/port.php"
             local portscan_result=$(curl -s "$portscan_url" -d "remoteAddress=$server_ip&portNumber=$SSH_PORT" 2>/dev/null)
             if [ -n "$portscan_result" ]; then
                 if echo "$portscan_result" | grep -q "open\|accessible"; then
-                    _green "✓ yougetsignal.com: 端口 $SSH_PORT 外网可访问"
+                    _green "✓ yougetsignal.com: TCP端口 $SSH_PORT 外网可访问"
                 else
-                    _yellow "⚠ yougetsignal.com: 端口 $SSH_PORT 外网访问受限"
+                    _yellow "⚠ yougetsignal.com: TCP端口 $SSH_PORT 外网访问受限"
                 fi
             fi
+            
+            # 方法5: UDP端口检测示例 (如果需要检测UDP端口)
+            _yellow "UDP端口检测示例 (常用UDP端口):"
+            local udp_ports=("53" "123" "161" "500" "4500")
+            for udp_port in "${udp_ports[@]}"; do
+                _blue "检测UDP端口 $udp_port..."
+                if command -v nmap &>/dev/null; then
+                    local udp_result=$(nmap -sU -p "$udp_port" localhost 2>/dev/null | grep -o "open\|closed\|filtered" | head -1)
+                    if [ -n "$udp_result" ]; then
+                        case "$udp_result" in
+                            "open")
+                                _green "✓ UDP端口 $udp_port: 开放"
+                                ;;
+                            "closed")
+                                _yellow "⚠ UDP端口 $udp_port: 关闭"
+                                ;;
+                            "filtered")
+                                _yellow "⚠ UDP端口 $udp_port: 被过滤"
+                                ;;
+                        esac
+                    fi
+                fi
+            done
         fi
         
         # 6. 使用本地工具检测端口
         _yellow "6. 使用本地工具检测端口..."
+        _blue "检测协议: $SSH_PROTOCOL (SSH使用TCP协议)"
         
-        # 使用nmap检测（如果可用）
+        # 使用nmap检测TCP端口（如果可用）
         if command -v nmap &>/dev/null; then
-            _yellow "使用nmap检测本地端口..."
+            _yellow "使用nmap检测TCP端口 $SSH_PORT..."
             if nmap -p "$SSH_PORT" localhost 2>/dev/null | grep -q "open"; then
-                _green "✓ nmap: 端口 $SSH_PORT 本地开放"
+                _green "✓ nmap: TCP端口 $SSH_PORT 本地开放"
             else
-                _red "❌ nmap: 端口 $SSH_PORT 本地未开放"
+                _red "❌ nmap: TCP端口 $SSH_PORT 本地未开放"
             fi
         fi
         
-        # 使用telnet测试（如果可用）
+        # 使用telnet测试TCP连接（如果可用）
         if command -v telnet &>/dev/null; then
-            _yellow "使用telnet测试连接..."
+            _yellow "使用telnet测试TCP连接..."
             if timeout 3 telnet localhost "$SSH_PORT" 2>/dev/null | grep -q "Connected"; then
-                _green "✓ telnet: 本地连接成功"
+                _green "✓ telnet: TCP连接成功"
             else
-                _red "❌ telnet: 本地连接失败"
+                _red "❌ telnet: TCP连接失败"
             fi
         fi
         
-        # 使用nc (netcat) 测试（如果可用）
+        # 使用nc (netcat) 测试TCP连接（如果可用）
         if command -v nc &>/dev/null; then
-            _yellow "使用netcat测试连接..."
+            _yellow "使用netcat测试TCP连接..."
             if timeout 3 nc -z localhost "$SSH_PORT" 2>/dev/null; then
-                _green "✓ netcat: 本地连接成功"
+                _green "✓ netcat: TCP连接成功"
             else
-                _red "❌ netcat: 本地连接失败"
+                _red "❌ netcat: TCP连接失败"
             fi
         fi
         
-        # 使用ss命令检测（如果可用）
+        # 使用ss命令检测TCP端口状态（如果可用）
         if command -v ss &>/dev/null; then
-            _yellow "使用ss命令检测端口..."
+            _yellow "使用ss命令检测TCP端口状态..."
             if ss -tlnp | grep ":$SSH_PORT " >/dev/null 2>&1; then
-                _green "✓ ss: 端口 $SSH_PORT 正在监听"
+                _green "✓ ss: TCP端口 $SSH_PORT 正在监听"
             else
-                _red "❌ ss: 端口 $SSH_PORT 未监听"
+                _red "❌ ss: TCP端口 $SSH_PORT 未监听"
             fi
         fi
         
@@ -590,6 +617,7 @@ test_external_ssh_access() {
             echo "生成时间: $(date '+%Y-%m-%d %H:%M:%S')"
             echo "服务器IP: $server_ip"
             echo "SSH端口: $SSH_PORT"
+            echo "协议类型: $SSH_PROTOCOL (SSH使用TCP协议，端口22是TCP端口)"
             echo "=========================================="
             echo
             
@@ -622,31 +650,42 @@ test_external_ssh_access() {
             fi
             echo
             
-            echo "第三方API检测结果:"
+            echo "第三方API检测结果 (TCP端口):"
+            echo "检测协议: $SSH_PROTOCOL (SSH使用TCP协议，端口22是TCP端口)"
             echo "- canyouseeme.org: $(curl -s "http://canyouseeme.org/api/port/$SSH_PORT" 2>/dev/null || echo '检测失败')"
             echo "- portchecker.co: $(curl -s "https://portchecker.co/check" -d "port=$SSH_PORT" 2>/dev/null || echo '检测失败')"
             echo "- whatismyipaddress.com: $(curl -s "https://whatismyipaddress.com/port-scanner" -d "port=$SSH_PORT" 2>/dev/null || echo '检测失败')"
             echo "- yougetsignal.com: $(curl -s "https://www.yougetsignal.com/tools/open-ports/port.php" -d "remoteAddress=$server_ip&portNumber=$SSH_PORT" 2>/dev/null || echo '检测失败')"
             echo
             
-            echo "本地工具检测结果:"
+            echo "UDP端口检测示例 (常用UDP端口):"
+            echo "UDP端口检测说明: UDP是无连接协议，检测相对困难"
+            echo "常用UDP端口: 53(DNS), 123(NTP), 161(SNMP), 500(IPSec), 4500(IPSec)"
             if command -v nmap &>/dev/null; then
-                echo "- nmap: $(nmap -p "$SSH_PORT" localhost 2>/dev/null | grep -o "open\|closed\|filtered" | head -1 || echo '检测失败')"
+                echo "UDP端口53检测: $(nmap -sU -p 53 localhost 2>/dev/null | grep -o "open\|closed\|filtered" | head -1 || echo '检测失败')"
+            fi
+            echo
+            
+            echo "本地工具检测结果 (TCP端口):"
+            if command -v nmap &>/dev/null; then
+                echo "- nmap TCP: $(nmap -p "$SSH_PORT" localhost 2>/dev/null | grep -o "open\|closed\|filtered" | head -1 || echo '检测失败')"
             fi
             if command -v ss &>/dev/null; then
-                echo "- ss: $(ss -tlnp | grep ":$SSH_PORT " >/dev/null 2>&1 && echo '监听中' || echo '未监听')"
+                echo "- ss TCP: $(ss -tlnp | grep ":$SSH_PORT " >/dev/null 2>&1 && echo '监听中' || echo '未监听')"
             fi
             echo
             
             echo "诊断建议:"
+            echo "1. SSH使用TCP协议，端口22是TCP端口"
+            echo "2. 从外网设备测试: ssh root@$server_ip -p $SSH_PORT"
+            echo "3. 检查云服务商安全组设置 (TCP端口22)"
+            echo "4. 检查本地防火墙规则 (TCP端口22)"
+            echo "5. 检查SSH服务配置"
+            echo "6. 使用第三方端口检测工具验证TCP端口22"
+            echo "7. UDP端口检测需要使用专门的UDP扫描工具"
             if [ $firewall_blocked -eq 1 ]; then
-                echo "- 检查防火墙规则，确保SSH端口 $SSH_PORT 已开放"
+                echo "8. 检查防火墙规则，确保SSH端口 $SSH_PORT 已开放"
             fi
-            echo "- 检查云服务商安全组/防火墙规则"
-            echo "- 检查路由器端口转发设置"
-            echo "- 确认SSH服务正在运行"
-            echo "- 使用第三方API检测外网访问性"
-            echo "- 测试: ssh root@$server_ip -p $SSH_PORT"
             
         } > "$ssh_report"
         
@@ -655,18 +694,21 @@ test_external_ssh_access() {
         # 8. 总结诊断结果
         echo
         _blue "=== SSH访问诊断总结 ==="
+        _blue "协议类型: $SSH_PROTOCOL (SSH使用TCP协议，端口22是TCP端口)"
         if [ $firewall_blocked -eq 0 ]; then
             _green "✓ 本地SSH配置正常"
             _yellow "⚠ 外网访问性需要进一步验证"
             _yellow "建议: 使用第三方API检测或从外网设备测试 ssh root@$server_ip -p $SSH_PORT"
-            _blue "第三方检测服务:"
+            _blue "第三方TCP端口检测服务:"
             _blue "- canyouseeme.org"
             _blue "- portchecker.co" 
             _blue "- whatismyipaddress.com"
             _blue "- yougetsignal.com"
+            _blue "UDP端口检测说明: UDP是无连接协议，检测相对困难"
+            _blue "常用UDP端口: 53(DNS), 123(NTP), 161(SNMP), 500(IPSec), 4500(IPSec)"
         else
             _red "❌ 发现SSH访问问题"
-            _yellow "建议: 检查防火墙规则和云服务商配置"
+            _yellow "建议: 检查防火墙规则和云服务商配置 (TCP端口22)"
         fi
         
         log_message "SSH访问诊断完成，服务器IP: $server_ip, 端口: $SSH_PORT"

@@ -210,42 +210,43 @@ pvesm status
 3. 错误信息截图
 4. 执行的具体命令
 
-## network_fix.sh - 网络环境检测与修复脚本 (v1.1.0)
+## network_fix.sh - 网络环境检测与修复脚本 (v1.4.0)
 
 ### 功能特性
-- **交互式菜单系统**：提供6个功能选项的用户友好界面
-- **带备注的网络配置备份**：支持自定义备份备注信息
-- **网络配置查看**：显示当前网络配置和备份列表
-- **智能网络配置恢复**：显示变动修改并确认后恢复
-- **SSH端口检测优化**：仅显示成功的检测结果
-- **命令行参数支持**：支持直接执行指定功能
-- **全面的网络诊断**：检测网络接口、路由、DNS、防火墙等
-- **第三方API端口检测**：支持TCP/UDP端口外网访问性检测
-- **云服务商环境检测**：自动识别AWS、GCP、Azure、阿里云等
-- **详细的诊断报告**：生成完整的网络状态和故障报告
+- **查看网络配置**: 显示当前网络接口、路由表、DNS配置、防火墙状态
+- **备份网络环境**: 创建带备注的网络配置备份
+- **检测22端口**: 检测SSH端口是否开放（仅显示成功结果）
+- **恢复网络配置**: 从备份中恢复网络配置
 
 ### 使用方法
 ```bash
-# 交互式菜单模式
-curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash
+# 查看帮助
+bash network_fix.sh help
 
-# 直接执行功能
-curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash backup
-curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash view
-curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash restore
-curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash diagnose
-curl -L https://raw.githubusercontent.com/wevebeen/onestep/main/network_fix.sh | sudo bash ssh
+# 查看当前网络配置
+bash network_fix.sh view
+
+# 备份当前网络环境
+bash network_fix.sh backup
+
+# 检测22端口
+bash network_fix.sh check
+
+# 恢复网络配置
+bash network_fix.sh restore
 ```
 
-### 菜单选项
-1. **备份网络配置（带备注）** - 创建带自定义备注的网络配置备份
-2. **查看网络配置和备份** - 显示当前配置和备份列表
-3. **恢复网络配置** - 选择备份并恢复，显示变动修改
-4. **网络诊断和修复** - 全面的网络问题诊断和修复
-5. **SSH端口检测** - 检测SSH端口外网访问性（仅显示成功）
-6. **退出** - 退出脚本
+### 输出文件
+- **备份目录**: `$HOME/network_backup/`
+- **日志文件**: `$HOME/network_fix.log`
 
 ## 更新日志
+
+### v1.4.0 (2025-01-15)
+- ✅ 简化脚本功能，移除自动检测和复杂菜单
+- ✅ 支持命令行参数直接执行功能
+- ✅ 优化备份和恢复功能
+- ✅ 修复死循环问题
 
 ### v1.1.0 (2025-01-15)
 - ✅ 添加交互式菜单系统

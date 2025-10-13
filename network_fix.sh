@@ -487,36 +487,101 @@ test_external_ssh_access() {
             esac
         fi
         
-        # 5. 使用外部服务检测端口开放性
-        _yellow "5. 使用外部服务检测端口开放性..."
+        # 5. 使用第三方API检测端口开放性
+        _yellow "5. 使用第三方API检测端口开放性..."
+        
+        # 使用在线端口检测服务
         if command -v curl &>/dev/null; then
-            # 使用在线端口检测服务
-            local port_check_url="https://www.yougetsignal.com/tools/open-ports/port.php"
-            _yellow "正在检测端口 $SSH_PORT 的开放性..."
+            _yellow "正在使用第三方API检测端口 $SSH_PORT..."
             
-            # 使用nmap检测（如果可用）
-            if command -v nmap &>/dev/null; then
-                _yellow "使用nmap检测本地端口..."
-                if nmap -p "$SSH_PORT" localhost 2>/dev/null | grep -q "open"; then
-                    _green "✓ nmap: 端口 $SSH_PORT 本地开放"
+            # 方法1: 使用canyouseeme.org API
+            local canyouseeme_result=$(curl -s "http://canyouseeme.org/api/port/$SSH_PORT" 2>/dev/null)
+            if [ -n "$canyouseeme_result" ]; then
+                if echo "$canyouseeme_result" | grep -q "open\|success"; then
+                    _green "✓ canyouseeme.org: 端口 $SSH_PORT 外网可访问"
                 else
-                    _red "❌ nmap: 端口 $SSH_PORT 本地未开放"
+                    _yellow "⚠ canyouseeme.org: 端口 $SSH_PORT 外网访问受限"
                 fi
             fi
             
-            # 使用telnet测试（如果可用）
-            if command -v telnet &>/dev/null; then
-                _yellow "使用telnet测试连接..."
-                if timeout 3 telnet localhost "$SSH_PORT" 2>/dev/null | grep -q "Connected"; then
-                    _green "✓ telnet: 本地连接成功"
+            # 方法2: 使用portchecker.co API
+            local portchecker_result=$(curl -s "https://portchecker.co/check" -d "port=$SSH_PORT" 2>/dev/null)
+            if [ -n "$portchecker_result" ]; then
+                if echo "$portchecker_result" | grep -q "open\|accessible"; then
+                    _green "✓ portchecker.co: 端口 $SSH_PORT 外网可访问"
                 else
-                    _red "❌ telnet: 本地连接失败"
+                    _yellow "⚠ portchecker.co: 端口 $SSH_PORT 外网访问受限"
+                fi
+            fi
+            
+            # 方法3: 使用whatismyipaddress.com端口检测
+            local wmipa_result=$(curl -s "https://whatismyipaddress.com/port-scanner" -d "port=$SSH_PORT" 2>/dev/null)
+            if [ -n "$wmipa_result" ]; then
+                if echo "$wmipa_result" | grep -q "open\|accessible"; then
+                    _green "✓ whatismyipaddress.com: 端口 $SSH_PORT 外网可访问"
+                else
+                    _yellow "⚠ whatismyipaddress.com: 端口 $SSH_PORT 外网访问受限"
+                fi
+            fi
+            
+            # 方法4: 使用在线端口扫描工具
+            _yellow "使用在线端口扫描工具..."
+            local portscan_url="https://www.yougetsignal.com/tools/open-ports/port.php"
+            local portscan_result=$(curl -s "$portscan_url" -d "remoteAddress=$server_ip&portNumber=$SSH_PORT" 2>/dev/null)
+            if [ -n "$portscan_result" ]; then
+                if echo "$portscan_result" | grep -q "open\|accessible"; then
+                    _green "✓ yougetsignal.com: 端口 $SSH_PORT 外网可访问"
+                else
+                    _yellow "⚠ yougetsignal.com: 端口 $SSH_PORT 外网访问受限"
                 fi
             fi
         fi
         
-        # 6. 生成SSH访问诊断报告
-        _yellow "6. 生成SSH访问诊断报告..."
+        # 6. 使用本地工具检测端口
+        _yellow "6. 使用本地工具检测端口..."
+        
+        # 使用nmap检测（如果可用）
+        if command -v nmap &>/dev/null; then
+            _yellow "使用nmap检测本地端口..."
+            if nmap -p "$SSH_PORT" localhost 2>/dev/null | grep -q "open"; then
+                _green "✓ nmap: 端口 $SSH_PORT 本地开放"
+            else
+                _red "❌ nmap: 端口 $SSH_PORT 本地未开放"
+            fi
+        fi
+        
+        # 使用telnet测试（如果可用）
+        if command -v telnet &>/dev/null; then
+            _yellow "使用telnet测试连接..."
+            if timeout 3 telnet localhost "$SSH_PORT" 2>/dev/null | grep -q "Connected"; then
+                _green "✓ telnet: 本地连接成功"
+            else
+                _red "❌ telnet: 本地连接失败"
+            fi
+        fi
+        
+        # 使用nc (netcat) 测试（如果可用）
+        if command -v nc &>/dev/null; then
+            _yellow "使用netcat测试连接..."
+            if timeout 3 nc -z localhost "$SSH_PORT" 2>/dev/null; then
+                _green "✓ netcat: 本地连接成功"
+            else
+                _red "❌ netcat: 本地连接失败"
+            fi
+        fi
+        
+        # 使用ss命令检测（如果可用）
+        if command -v ss &>/dev/null; then
+            _yellow "使用ss命令检测端口..."
+            if ss -tlnp | grep ":$SSH_PORT " >/dev/null 2>&1; then
+                _green "✓ ss: 端口 $SSH_PORT 正在监听"
+            else
+                _red "❌ ss: 端口 $SSH_PORT 未监听"
+            fi
+        fi
+        
+        # 7. 生成SSH访问诊断报告
+        _yellow "7. 生成SSH访问诊断报告..."
         local timestamp=$(date '+%Y%m%d_%H%M%S')
         local ssh_report="$REPORT_DIR/ssh_access_diagnosis_$timestamp.txt"
         
@@ -557,6 +622,22 @@ test_external_ssh_access() {
             fi
             echo
             
+            echo "第三方API检测结果:"
+            echo "- canyouseeme.org: $(curl -s "http://canyouseeme.org/api/port/$SSH_PORT" 2>/dev/null || echo '检测失败')"
+            echo "- portchecker.co: $(curl -s "https://portchecker.co/check" -d "port=$SSH_PORT" 2>/dev/null || echo '检测失败')"
+            echo "- whatismyipaddress.com: $(curl -s "https://whatismyipaddress.com/port-scanner" -d "port=$SSH_PORT" 2>/dev/null || echo '检测失败')"
+            echo "- yougetsignal.com: $(curl -s "https://www.yougetsignal.com/tools/open-ports/port.php" -d "remoteAddress=$server_ip&portNumber=$SSH_PORT" 2>/dev/null || echo '检测失败')"
+            echo
+            
+            echo "本地工具检测结果:"
+            if command -v nmap &>/dev/null; then
+                echo "- nmap: $(nmap -p "$SSH_PORT" localhost 2>/dev/null | grep -o "open\|closed\|filtered" | head -1 || echo '检测失败')"
+            fi
+            if command -v ss &>/dev/null; then
+                echo "- ss: $(ss -tlnp | grep ":$SSH_PORT " >/dev/null 2>&1 && echo '监听中' || echo '未监听')"
+            fi
+            echo
+            
             echo "诊断建议:"
             if [ $firewall_blocked -eq 1 ]; then
                 echo "- 检查防火墙规则，确保SSH端口 $SSH_PORT 已开放"
@@ -564,19 +645,25 @@ test_external_ssh_access() {
             echo "- 检查云服务商安全组/防火墙规则"
             echo "- 检查路由器端口转发设置"
             echo "- 确认SSH服务正在运行"
+            echo "- 使用第三方API检测外网访问性"
             echo "- 测试: ssh root@$server_ip -p $SSH_PORT"
             
         } > "$ssh_report"
         
         _green "✓ SSH访问诊断报告已生成: $ssh_report"
         
-        # 7. 总结诊断结果
+        # 8. 总结诊断结果
         echo
         _blue "=== SSH访问诊断总结 ==="
         if [ $firewall_blocked -eq 0 ]; then
             _green "✓ 本地SSH配置正常"
             _yellow "⚠ 外网访问性需要进一步验证"
-            _yellow "建议: 从外网设备测试 ssh root@$server_ip -p $SSH_PORT"
+            _yellow "建议: 使用第三方API检测或从外网设备测试 ssh root@$server_ip -p $SSH_PORT"
+            _blue "第三方检测服务:"
+            _blue "- canyouseeme.org"
+            _blue "- portchecker.co" 
+            _blue "- whatismyipaddress.com"
+            _blue "- yougetsignal.com"
         else
             _red "❌ 发现SSH访问问题"
             _yellow "建议: 检查防火墙规则和云服务商配置"

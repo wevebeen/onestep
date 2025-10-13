@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.5.0"
+SCRIPT_VERSION="1.6.0"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -57,7 +57,8 @@ show_menu() {
     echo "2. 备份当前网络环境"
     echo "3. 检测22端口"
     echo "4. 恢复网络配置"
-    echo "5. 退出"
+    echo "5. 查看备份列表"
+    echo "6. 退出"
     echo
 }
 
@@ -255,12 +256,182 @@ view_comprehensive_network() {
     uptime
     
     echo
-    _yellow "14. 网络相关进程:"
-    ps aux | grep -E "(network|dhcp|dns|sshd)" | grep -v grep
+    _yellow "14. 网络转发和NAT配置:"
+    echo "IP转发状态:"
+    if [ -f "/proc/sys/net/ipv4/ip_forward" ]; then
+        echo "IPv4转发: $(cat /proc/sys/net/ipv4/ip_forward)"
+    fi
+    if [ -f "/proc/sys/net/ipv6/conf/all/forwarding" ]; then
+        echo "IPv6转发: $(cat /proc/sys/net/ipv6/conf/all/forwarding)"
+    fi
     
     echo
-    _green "✓ 全面网络环境检测完成"
-    log "全面网络环境检测完成"
+    echo "NAT规则 (iptables):"
+    if command -v iptables >/dev/null 2>&1; then
+        echo "NAT表规则:"
+        iptables -t nat -L -n -v 2>/dev/null || echo "无法获取NAT规则"
+        echo
+        echo "MASQUERADE规则:"
+        iptables -t nat -L POSTROUTING -n -v 2>/dev/null || echo "无法获取MASQUERADE规则"
+    else
+        echo "iptables未安装"
+    fi
+    
+    echo
+    _yellow "15. 网络桥接和VLAN:"
+    if command -v brctl >/dev/null 2>&1; then
+        echo "网桥信息:"
+        brctl show 2>/dev/null || echo "无法获取网桥信息"
+    elif command -v bridge >/dev/null 2>&1; then
+        echo "网桥信息:"
+        bridge link show 2>/dev/null || echo "无法获取网桥信息"
+    else
+        echo "网桥工具未安装"
+    fi
+    
+    echo
+    echo "VLAN配置:"
+    if command -v ip >/dev/null 2>&1; then
+        ip link show type vlan 2>/dev/null || echo "无VLAN配置"
+    else
+        echo "无法检查VLAN配置"
+    fi
+    
+    echo
+    _yellow "16. 网络隧道和VPN:"
+    echo "隧道接口:"
+    if command -v ip >/dev/null 2>&1; then
+        ip link show type tun 2>/dev/null || echo "无TUN接口"
+        ip link show type tap 2>/dev/null || echo "无TAP接口"
+        ip link show type gre 2>/dev/null || echo "无GRE隧道"
+        ip link show type sit 2>/dev/null || echo "无SIT隧道"
+    else
+        echo "无法检查隧道接口"
+    fi
+    
+    echo
+    echo "VPN服务状态:"
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl status openvpn --no-pager -l 2>/dev/null || echo "OpenVPN未运行"
+        systemctl status strongswan --no-pager -l 2>/dev/null || echo "StrongSwan未运行"
+        systemctl status wireguard --no-pager -l 2>/dev/null || echo "WireGuard未运行"
+    else
+        echo "无法检查VPN服务"
+    fi
+    
+    echo
+    _yellow "17. 网络QoS和流量控制:"
+    echo "TC (Traffic Control) 规则:"
+    if command -v tc >/dev/null 2>&1; then
+        tc qdisc show 2>/dev/null || echo "无QoS规则"
+        tc class show 2>/dev/null || echo "无流量分类"
+        tc filter show 2>/dev/null || echo "无流量过滤"
+    else
+        echo "TC工具未安装"
+    fi
+    
+    echo
+    _yellow "18. 网络安全配置:"
+    echo "SSH配置:"
+    if [ -f "/etc/ssh/sshd_config" ]; then
+        echo "SSH端口: $(grep -E '^Port' /etc/ssh/sshd_config 2>/dev/null || echo '默认22')"
+        echo "SSH协议: $(grep -E '^Protocol' /etc/ssh/sshd_config 2>/dev/null || echo '默认2')"
+        echo "SSH登录: $(grep -E '^PermitRootLogin' /etc/ssh/sshd_config 2>/dev/null || echo '默认no')"
+    else
+        echo "SSH配置文件不存在"
+    fi
+    
+    echo
+    echo "SSL证书:"
+    if [ -d "/etc/ssl/certs" ]; then
+        echo "SSL证书目录: /etc/ssl/certs"
+        ls -la /etc/ssl/certs/ | head -5
+    fi
+    
+    echo
+    _yellow "19. 网络代理配置:"
+    echo "环境变量代理:"
+    echo "HTTP_PROXY: ${HTTP_PROXY:-未设置}"
+    echo "HTTPS_PROXY: ${HTTPS_PROXY:-未设置}"
+    echo "NO_PROXY: ${NO_PROXY:-未设置}"
+    
+    echo
+    echo "系统代理配置:"
+    if [ -f "/etc/environment" ]; then
+        grep -i proxy /etc/environment 2>/dev/null || echo "无代理配置"
+    fi
+    
+    echo
+    _yellow "20. 网络时间同步:"
+    echo "NTP服务状态:"
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl status ntp --no-pager -l 2>/dev/null || echo "NTP未运行"
+        systemctl status chrony --no-pager -l 2>/dev/null || echo "Chrony未运行"
+        systemctl status systemd-timesyncd --no-pager -l 2>/dev/null || echo "systemd-timesyncd未运行"
+    else
+        echo "无法检查时间同步服务"
+    fi
+    
+    echo
+    echo "NTP配置:"
+    if [ -f "/etc/ntp.conf" ]; then
+        grep -E '^server|^pool' /etc/ntp.conf 2>/dev/null || echo "无NTP服务器配置"
+    elif [ -f "/etc/chrony.conf" ]; then
+        grep -E '^server|^pool' /etc/chrony.conf 2>/dev/null || echo "无Chrony服务器配置"
+    else
+        echo "无NTP配置文件"
+    fi
+    
+    echo
+    _yellow "21. 网络存储配置:"
+    echo "NFS服务状态:"
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl status nfs-server --no-pager -l 2>/dev/null || echo "NFS服务未运行"
+        systemctl status nfs-kernel-server --no-pager -l 2>/dev/null || echo "NFS内核服务未运行"
+    else
+        echo "无法检查NFS服务"
+    fi
+    
+    echo
+    echo "SMB/CIFS服务状态:"
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl status smbd --no-pager -l 2>/dev/null || echo "SMB服务未运行"
+        systemctl status nmbd --no-pager -l 2>/dev/null || echo "NetBIOS服务未运行"
+    else
+        echo "无法检查SMB服务"
+    fi
+    
+    echo
+    _yellow "22. 网络监控配置:"
+    echo "SNMP服务状态:"
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl status snmpd --no-pager -l 2>/dev/null || echo "SNMP服务未运行"
+    else
+        echo "无法检查SNMP服务"
+    fi
+    
+    echo
+    echo "网络监控工具:"
+    if command -v netstat >/dev/null 2>&1; then
+        echo "netstat: 已安装"
+    fi
+    if command -v ss >/dev/null 2>&1; then
+        echo "ss: 已安装"
+    fi
+    if command -v tcpdump >/dev/null 2>&1; then
+        echo "tcpdump: 已安装"
+    fi
+    if command -v wireshark >/dev/null 2>&1; then
+        echo "wireshark: 已安装"
+    fi
+    
+    echo
+    _yellow "23. 网络相关进程:"
+    ps aux | grep -E "(network|dhcp|dns|sshd|ntp|chrony|openvpn|strongswan|wireguard|nfs|smb|snmp)" | grep -v grep
+    
+    echo
+    _green "✓ 全面网络环境检测完成 (共23项检测)"
+    log "全面网络环境检测完成 (共23项检测)"
 }
 
 # 2. 备份当前网络环境
@@ -299,6 +470,12 @@ backup_network_config() {
     
     if command -v iptables >/dev/null 2>&1; then
         iptables-save > "$backup_path/iptables_rules.txt"
+        iptables -t nat -L -n -v > "$backup_path/iptables_nat.txt" 2>/dev/null || true
+        iptables -t mangle -L -n -v > "$backup_path/iptables_mangle.txt" 2>/dev/null || true
+    fi
+    
+    if command -v firewall-cmd >/dev/null 2>&1; then
+        firewall-cmd --list-all > "$backup_path/firewalld_config.txt" 2>/dev/null || true
     fi
     
     # 备份DNS配置
@@ -307,6 +484,63 @@ backup_network_config() {
     # 备份主机名配置
     cp /etc/hostname "$backup_path/" 2>/dev/null || true
     cp /etc/hosts "$backup_path/" 2>/dev/null || true
+    
+    # 备份网络转发配置
+    if [ -f "/proc/sys/net/ipv4/ip_forward" ]; then
+        cat /proc/sys/net/ipv4/ip_forward > "$backup_path/ipv4_forward.txt" 2>/dev/null || true
+    fi
+    if [ -f "/proc/sys/net/ipv6/conf/all/forwarding" ]; then
+        cat /proc/sys/net/ipv6/conf/all/forwarding > "$backup_path/ipv6_forward.txt" 2>/dev/null || true
+    fi
+    
+    # 备份网络桥接配置
+    if command -v brctl >/dev/null 2>&1; then
+        brctl show > "$backup_path/bridge_info.txt" 2>/dev/null || true
+    fi
+    
+    # 备份SSH配置
+    if [ -f "/etc/ssh/sshd_config" ]; then
+        cp /etc/ssh/sshd_config "$backup_path/"
+    fi
+    
+    # 备份NTP配置
+    if [ -f "/etc/ntp.conf" ]; then
+        cp /etc/ntp.conf "$backup_path/"
+    fi
+    if [ -f "/etc/chrony.conf" ]; then
+        cp /etc/chrony.conf "$backup_path/"
+    fi
+    
+    # 备份网络代理配置
+    if [ -f "/etc/environment" ]; then
+        cp /etc/environment "$backup_path/"
+    fi
+    
+    # 备份网络存储配置
+    if [ -f "/etc/exports" ]; then
+        cp /etc/exports "$backup_path/"
+    fi
+    if [ -f "/etc/samba/smb.conf" ]; then
+        cp /etc/samba/smb.conf "$backup_path/"
+    fi
+    
+    # 备份SNMP配置
+    if [ -f "/etc/snmp/snmpd.conf" ]; then
+        cp /etc/snmp/snmpd.conf "$backup_path/"
+    fi
+    
+    # 备份网络管理器配置
+    if [ -d "/etc/NetworkManager" ]; then
+        cp -r /etc/NetworkManager "$backup_path/"
+    fi
+    
+    # 备份DHCP配置
+    if [ -f "/etc/dhcp/dhcpd.conf" ]; then
+        cp /etc/dhcp/dhcpd.conf "$backup_path/"
+    fi
+    if [ -f "/etc/dhcpcd.conf" ]; then
+        cp /etc/dhcpcd.conf "$backup_path/"
+    fi
     
     # 保存备份信息
     cat > "$backup_path/backup_info.txt" << EOF
@@ -379,6 +613,100 @@ check_ssh_port() {
     
     _green "检测完成"
     log "SSH端口检测完成"
+}
+
+# 5. 查看备份列表
+view_backup_list() {
+    _blue "=== 查看备份列表 ==="
+    
+    if [ ! -d "$BACKUP_DIR" ] || [ -z "$(ls -A "$BACKUP_DIR")" ]; then
+        _yellow "ℹ️ 没有找到任何网络配置备份。"
+        log "没有找到任何网络配置备份"
+        return 1
+    fi
+    
+    _yellow "可用的备份:"
+    local backups=()
+    local i=1
+    for dir in "$BACKUP_DIR"/backup_*/; do
+        if [ -d "$dir" ]; then
+            local backup_name=$(basename "$dir")
+            local backup_info_file="$dir/backup_info.txt"
+            local backup_note="无备注"
+            local backup_time="未知时间"
+            local backup_files=""
+            
+            if [ -f "$backup_info_file" ]; then
+                backup_time=$(grep "备份时间:" "$backup_info_file" | cut -d ':' -f 2- | xargs)
+                backup_note=$(grep "备份备注:" "$backup_info_file" | cut -d ':' -f 2- | xargs)
+            fi
+            
+            # 统计备份文件数量
+            local file_count=$(find "$dir" -type f -not -name "backup_info.txt" | wc -l)
+            
+            _yellow "$i. $backup_name"
+            echo "   时间: $backup_time"
+            echo "   备注: $backup_note"
+            echo "   文件数: $file_count"
+            
+            # 显示备份的文件列表
+            echo "   备份文件:"
+            find "$dir" -type f -not -name "backup_info.txt" -printf "     %f\n" 2>/dev/null || \
+            find "$dir" -type f -not -name "backup_info.txt" -exec basename {} \; 2>/dev/null | sed 's/^/     /'
+            
+            backups+=("$dir")
+            i=$((i+1))
+            echo
+        fi
+    done
+    
+    if [ ${#backups[@]} -eq 0 ]; then
+        _yellow "ℹ️ 没有找到任何有效的网络配置备份。"
+        log "没有找到任何有效的网络配置备份"
+        return 1
+    fi
+    
+    echo -n "请输入要查看的备份编号 (1-${#backups[@]}) 或按回车返回: "
+    read choice
+    choice=$(echo "$choice" | xargs)
+    
+    if [ -z "$choice" ]; then
+        return 0
+    fi
+    
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#backups[@]} )); then
+        _red "❌ 无效的备份编号。"
+        log "ERROR: 无效的备份编号: $choice"
+        return 1
+    fi
+    
+    local selected_backup_path="${backups[$((choice-1))]}"
+    _yellow "查看备份: $(basename "$selected_backup_path")"
+    
+    # 显示备份详细信息
+    if [ -f "$selected_backup_path/backup_info.txt" ]; then
+        echo
+        _yellow "备份信息:"
+        cat "$selected_backup_path/backup_info.txt"
+    fi
+    
+    echo
+    _yellow "备份文件内容:"
+    for file in "$selected_backup_path"/*; do
+        if [ -f "$file" ] && [ "$(basename "$file")" != "backup_info.txt" ]; then
+            echo
+            _blue "文件: $(basename "$file")"
+            echo "----------------------------------------"
+            if [[ "$file" == *.txt ]] || [[ "$file" == *.conf ]] || [[ "$file" == *.yaml ]]; then
+                cat "$file" 2>/dev/null || echo "无法读取文件内容"
+            else
+                echo "二进制文件，无法显示内容"
+            fi
+        fi
+    done
+    
+    _green "✓ 备份查看完成"
+    log "查看备份: $(basename "$selected_backup_path")"
 }
 
 # 4. 恢复网络配置
@@ -490,6 +818,9 @@ handle_menu_choice() {
             restore_network_config
             ;;
         "5")
+            view_backup_list
+            ;;
+        "6")
             _green "感谢使用！"
             return 0
             ;;
@@ -520,6 +851,7 @@ show_help() {
     echo "  $0 backup   - 备份当前网络环境"
     echo "  $0 check    - 检测22端口"
     echo "  $0 restore  - 恢复网络配置"
+    echo "  $0 list     - 查看备份列表"
     echo "  $0 help     - 显示帮助信息"
     echo
 }
@@ -554,17 +886,20 @@ main() {
             "check")
                 check_ssh_port
                 ;;
-            "restore")
-                restore_network_config
-                ;;
-            "help")
-                show_help
-                ;;
-            *)
-                _red "❌ 无效的参数: $1"
-                show_help
-                exit 1
-                ;;
+               "restore")
+                   restore_network_config
+                   ;;
+               "list")
+                   view_backup_list
+                   ;;
+               "help")
+                   show_help
+                   ;;
+               *)
+                   _red "❌ 无效的参数: $1"
+                   show_help
+                   exit 1
+                   ;;
         esac
     fi
 }

@@ -4,7 +4,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.1.5"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -83,7 +83,7 @@ create_network_backup() {
     
     # 获取用户输入的备注
     echo -n "请输入备份备注: "
-    read backup_note
+    read -r backup_note
     
     # 去除前后空格
     backup_note=$(echo "$backup_note" | xargs)
@@ -246,7 +246,7 @@ restore_network_config() {
     
     # 选择要恢复的备份
     echo -n "请选择要恢复的备份 (1-$backup_count): "
-    read choice
+    read -r choice
     
     # 去除前后空格
     choice=$(echo "$choice" | xargs)
@@ -306,7 +306,7 @@ restore_network_config() {
     echo
     _red "⚠️  警告: 此操作将修改网络配置，可能导致网络连接中断！"
     echo -n "确认要恢复网络配置吗？(yes/no): "
-    read confirm
+    read -r confirm
     
     # 去除前后空格并转换为小写
     confirm=$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')
@@ -1340,17 +1340,51 @@ main() {
         while true; do
             show_menu
             echo -n "请输入选择 (1-6): "
-            read choice
+            read -r choice
             echo
             
-            if handle_menu_choice "$choice"; then
-                # 如果返回0，表示用户选择退出
-                break
-            fi
+            case "$choice" in
+                "1"|"backup")
+                    create_network_backup
+                    ;;
+                "2"|"view")
+                    view_network_config
+                    ;;
+                "3"|"restore")
+                    restore_network_config
+                    ;;
+                "4"|"diagnose")
+                    # 检查并创建初始备份
+                    if ! check_initial_backup_exists; then
+                        create_initial_backup
+                        echo
+                    fi
+                    
+                    # 更新当前备份
+                    update_current_backup
+                    echo
+                    
+                    # 执行网络诊断和修复
+                    diagnose_and_fix_network
+                    ;;
+                "5"|"ssh")
+                    test_external_ssh_access
+                    ;;
+                "6"|"exit"|"quit")
+                    _green "感谢使用！"
+                    break
+                    ;;
+                "")
+                    continue
+                    ;;
+                *)
+                    _red "❌ 无效的选择: '$choice'，请重新输入"
+                    ;;
+            esac
             
             echo
             echo -n "按回车键继续..."
-            read
+            read -r
         done
     fi
 }

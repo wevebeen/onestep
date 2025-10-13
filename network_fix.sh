@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.9"
+SCRIPT_VERSION="1.6.10"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -102,7 +102,7 @@ show_menu() {
     echo "5. 查看备份列表"
     echo "6. 修复权限问题"
     echo "7. 快速启用保护"
-    echo "8. 退出"
+    echo "0. 退出"
     echo
 }
 
@@ -1335,7 +1335,7 @@ handle_menu_choice() {
             quick_protect
             return 1
             ;;
-        "8")
+        "0")
             _green "感谢使用！"
             exit 0
             ;;
@@ -1382,7 +1382,7 @@ main() {
         # 交互式菜单模式
         while true; do
             show_menu
-            echo -n "请输入选择 (1-8): "
+            echo -n "请输入选择 (0-7): "
             read choice
             choice=$(echo "$choice" | xargs)
             

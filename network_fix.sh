@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.4"
+SCRIPT_VERSION="1.6.5"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -598,6 +598,11 @@ EOF
     _green "备份备注: $backup_note"
     
     log "创建备份: $backup_path, 备注: $backup_note"
+    
+    echo
+    echo -n "按回车键继续..."
+    read
+    return 1
 }
 
 # 3. 检测22端口
@@ -656,6 +661,11 @@ check_ssh_port() {
     
     _green "检测完成"
     log "SSH端口检测完成"
+    
+    echo
+    echo -n "按回车键继续..."
+    read
+    return 1
 }
 
 # 5. 查看备份列表
@@ -805,6 +815,39 @@ fix_permissions() {
     
     if [ $fixed_count -gt 0 ]; then
         _green "✓ 已修复 $fixed_count 个权限问题"
+        
+        # 询问是否重新设置保护
+        echo
+        _yellow "🔒 是否重新设置文件保护以防止被恶意修改？"
+        echo -n "请输入选择 (y/N): "
+        read -r protect_choice
+        protect_choice=$(echo "$protect_choice" | xargs | tr '[:upper:]' '[:lower:]')
+        
+        if [ "$protect_choice" = "y" ] || [ "$protect_choice" = "yes" ]; then
+            _blue "🔒 重新设置文件保护..."
+            local protected_count=0
+            
+            for file in "${files[@]}"; do
+                if [ -f "$file" ]; then
+                    # 设置文件为不可变
+                    if command -v chattr >/dev/null 2>&1; then
+                        if chattr +i "$file" 2>/dev/null; then
+                            _green "✓ 已保护: $file"
+                            ((protected_count++))
+                        else
+                            _red "❌ 保护失败: $file"
+                        fi
+                    fi
+                fi
+            done
+            
+            if [ $protected_count -gt 0 ]; then
+                _green "✓ 已保护 $protected_count 个文件"
+                _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
+            fi
+        else
+            _yellow "⚠️ 文件未设置保护，请注意安全"
+        fi
     else
         _green "✓ 所有文件权限正常"
     fi
@@ -1009,6 +1052,11 @@ restore_network_config() {
     echo
     
     log "恢复备份: $selected_backup"
+    
+    echo
+    echo -n "按回车键继续..."
+    read
+    return 1
 }
 
 # 处理菜单选择

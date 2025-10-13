@@ -77,3 +77,8 @@ debug.log
 install.log
 backups/
 
+# 版本管理脚本（不提交到Git）
+version_manager.sh
+auto_version.sh
+smart_commit.sh
+

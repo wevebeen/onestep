@@ -374,12 +374,15 @@ handle_menu_choice() {
     case "$choice" in
         "1"|"backup")
             create_network_backup
+            return 1
             ;;
         "2"|"view")
             view_network_config
+            return 1
             ;;
         "3"|"restore")
             restore_network_config
+            return 1
             ;;
         "4"|"diagnose")
             # 检查并创建初始备份
@@ -430,9 +433,11 @@ handle_menu_choice() {
                 # 生成修复后报告
                 generate_network_report
             fi
+            return 1
             ;;
         "5"|"ssh")
             test_external_ssh_access
+            return 1
             ;;
         "6"|"exit"|"quit")
             _green "感谢使用！"
@@ -443,7 +448,6 @@ handle_menu_choice() {
             return 1
             ;;
     esac
-    return 1
 }
 
 # 创建初始网络环境备份

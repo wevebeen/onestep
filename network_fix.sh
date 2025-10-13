@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.2"
+SCRIPT_VERSION="1.6.3"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -36,8 +36,16 @@ check_environment() {
     # 检查root权限（测试时跳过）
     if [[ $EUID -ne 0 ]] && [[ "$OSTYPE" == "linux-gnu"* ]]; then
         _red "❌ 此脚本需要root权限执行"
+        _yellow "💡 请使用: sudo bash $0"
         exit 1
     fi
+    
+    # 权限问题说明
+    _blue "ℹ️ 权限说明:"
+    _blue "   - 某些系统文件可能受到保护，恢复时会出现权限错误"
+    _blue "   - 这是正常现象，脚本会尝试恢复并提示手动操作"
+    _blue "   - 如果遇到权限问题，请手动复制备份文件到对应位置"
+    echo
     
     # 创建必要目录
     mkdir -p "$BACKUP_DIR"
@@ -775,11 +783,15 @@ restore_network_config() {
     
     # 恢复网络接口配置
     if [ -d "$selected_backup/netplan" ]; then
-        cp -r "$selected_backup/netplan" /etc/
+        cp -r "$selected_backup/netplan" /etc/ 2>/dev/null || {
+            _yellow "⚠️ netplan配置恢复失败，可能需要手动恢复"
+        }
     fi
     
     if [ -f "$selected_backup/interfaces" ]; then
-        cp "$selected_backup/interfaces" /etc/network/
+        cp "$selected_backup/interfaces" /etc/network/ 2>/dev/null || {
+            _yellow "⚠️ interfaces配置恢复失败，可能需要手动恢复"
+        }
     fi
     
     # 恢复防火墙配置
@@ -797,16 +809,22 @@ restore_network_config() {
     
     # 恢复DNS配置
     if [ -f "$selected_backup/resolv.conf" ]; then
-        cp "$selected_backup/resolv.conf" /etc/
+        cp "$selected_backup/resolv.conf" /etc/ 2>/dev/null || {
+            _yellow "⚠️ resolv.conf配置恢复失败，可能需要手动恢复"
+        }
     fi
     
     # 恢复主机名配置
     if [ -f "$selected_backup/hostname" ]; then
-        cp "$selected_backup/hostname" /etc/
+        cp "$selected_backup/hostname" /etc/ 2>/dev/null || {
+            _yellow "⚠️ hostname配置恢复失败，可能需要手动恢复"
+        }
     fi
     
     if [ -f "$selected_backup/hosts" ]; then
-        cp "$selected_backup/hosts" /etc/
+        cp "$selected_backup/hosts" /etc/ 2>/dev/null || {
+            _yellow "⚠️ hosts配置恢复失败，可能需要手动恢复"
+        }
     fi
     
     # 恢复网络转发配置

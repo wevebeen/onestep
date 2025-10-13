@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.7.6"
+SCRIPT_VERSION="1.7.7"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -1130,9 +1130,10 @@ restore_network_config() {
     # 执行恢复
     _green "正在恢复网络配置..."
     
-    # 记录恢复的文件
+    # 记录恢复的文件和失败原因
     local restored_files=()
-    local restored_categories=()
+    local failed_files=()
+    local failed_reasons=()
     
     # 尝试解除文件保护
     _blue "🔓 尝试解除文件保护..."
@@ -1216,7 +1217,8 @@ restore_network_config() {
             restored_files+=("/etc/hostname")
         else
             _red "❌ /etc/hostname (恢复失败)"
-            restored_files+=("/etc/hostname (恢复失败)")
+            failed_files+=("/etc/hostname")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1226,7 +1228,8 @@ restore_network_config() {
             restored_files+=("/etc/hosts")
         else
             _red "❌ /etc/hosts (恢复失败)"
-            restored_files+=("/etc/hosts (恢复失败)")
+            failed_files+=("/etc/hosts")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1236,7 +1239,8 @@ restore_network_config() {
             restored_files+=("/etc/environment")
         else
             _red "❌ /etc/environment (恢复失败)"
-            restored_files+=("/etc/environment (恢复失败)")
+            failed_files+=("/etc/environment")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1247,7 +1251,8 @@ restore_network_config() {
             restored_files+=("/etc/netplan")
         else
             _red "❌ /etc/netplan/ (恢复失败)"
-            restored_files+=("/etc/netplan (恢复失败)")
+            failed_files+=("/etc/netplan")
+            failed_reasons+=("权限不足或目录被保护")
         fi
     fi
     
@@ -1257,7 +1262,8 @@ restore_network_config() {
             restored_files+=("/etc/network/interfaces")
         else
             _red "❌ /etc/network/interfaces (恢复失败)"
-            restored_files+=("/etc/network/interfaces (恢复失败)")
+            failed_files+=("/etc/network/interfaces")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1267,7 +1273,8 @@ restore_network_config() {
             restored_files+=("/etc/NetworkManager")
         else
             _red "❌ /etc/NetworkManager/ (恢复失败)"
-            restored_files+=("/etc/NetworkManager (恢复失败)")
+            failed_files+=("/etc/NetworkManager")
+            failed_reasons+=("权限不足或目录被保护")
         fi
     fi
     
@@ -1326,7 +1333,8 @@ restore_network_config() {
             restored_files+=("/etc/resolv.conf")
         else
             _red "❌ /etc/resolv.conf (恢复失败)"
-            restored_files+=("/etc/resolv.conf (恢复失败)")
+            failed_files+=("/etc/resolv.conf")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1337,7 +1345,8 @@ restore_network_config() {
             restored_files+=("iptables_rules")
         else
             _red "❌ iptables规则 (恢复失败)"
-            restored_files+=("iptables_rules (恢复失败)")
+            failed_files+=("iptables_rules")
+            failed_reasons+=("iptables命令不可用或权限不足")
         fi
     fi
     
@@ -1347,7 +1356,8 @@ restore_network_config() {
             restored_files+=("iptables_nat")
         else
             _red "❌ iptables NAT规则 (恢复失败)"
-            restored_files+=("iptables_nat (恢复失败)")
+            failed_files+=("iptables_nat")
+            failed_reasons+=("iptables命令不可用或权限不足")
         fi
     fi
     
@@ -1357,7 +1367,8 @@ restore_network_config() {
             restored_files+=("iptables_mangle")
         else
             _red "❌ iptables MANGLE规则 (恢复失败)"
-            restored_files+=("iptables_mangle (恢复失败)")
+            failed_files+=("iptables_mangle")
+            failed_reasons+=("iptables命令不可用或权限不足")
         fi
     fi
     
@@ -1378,7 +1389,8 @@ restore_network_config() {
             restored_files+=("ipv4_forward")
         else
             _red "❌ IPv4转发 (恢复失败)"
-            restored_files+=("ipv4_forward (恢复失败)")
+            failed_files+=("ipv4_forward")
+            failed_reasons+=("无法写入/proc/sys/net/ipv4/ip_forward")
         fi
     fi
     
@@ -1388,7 +1400,8 @@ restore_network_config() {
             restored_files+=("ipv6_forward")
         else
             _red "❌ IPv6转发 (恢复失败)"
-            restored_files+=("ipv6_forward (恢复失败)")
+            failed_files+=("ipv6_forward")
+            failed_reasons+=("无法写入/proc/sys/net/ipv6/conf/all/forwarding")
         fi
     fi
     
@@ -1399,7 +1412,8 @@ restore_network_config() {
             restored_files+=("/etc/ssh/sshd_config")
         else
             _red "❌ /etc/ssh/sshd_config (恢复失败)"
-            restored_files+=("/etc/ssh/sshd_config (恢复失败)")
+            failed_files+=("/etc/ssh/sshd_config")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1410,7 +1424,8 @@ restore_network_config() {
             restored_files+=("/etc/ntp.conf")
         else
             _red "❌ /etc/ntp.conf (恢复失败)"
-            restored_files+=("/etc/ntp.conf (恢复失败)")
+            failed_files+=("/etc/ntp.conf")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1420,7 +1435,8 @@ restore_network_config() {
             restored_files+=("/etc/chrony.conf")
         else
             _red "❌ /etc/chrony.conf (恢复失败)"
-            restored_files+=("/etc/chrony.conf (恢复失败)")
+            failed_files+=("/etc/chrony.conf")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1431,7 +1447,8 @@ restore_network_config() {
             restored_files+=("/etc/exports")
         else
             _red "❌ /etc/exports (恢复失败)"
-            restored_files+=("/etc/exports (恢复失败)")
+            failed_files+=("/etc/exports")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1441,7 +1458,8 @@ restore_network_config() {
             restored_files+=("/etc/samba/smb.conf")
         else
             _red "❌ /etc/samba/smb.conf (恢复失败)"
-            restored_files+=("/etc/samba/smb.conf (恢复失败)")
+            failed_files+=("/etc/samba/smb.conf")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1452,7 +1470,8 @@ restore_network_config() {
             restored_files+=("/etc/snmp/snmpd.conf")
         else
             _red "❌ /etc/snmp/snmpd.conf (恢复失败)"
-            restored_files+=("/etc/snmp/snmpd.conf (恢复失败)")
+            failed_files+=("/etc/snmp/snmpd.conf")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1463,7 +1482,8 @@ restore_network_config() {
             restored_files+=("/etc/dhcp/dhcpd.conf")
         else
             _red "❌ /etc/dhcp/dhcpd.conf (恢复失败)"
-            restored_files+=("/etc/dhcp/dhcpd.conf (恢复失败)")
+            failed_files+=("/etc/dhcp/dhcpd.conf")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     
@@ -1473,7 +1493,8 @@ restore_network_config() {
             restored_files+=("/etc/dhcpcd.conf")
         else
             _red "❌ /etc/dhcpcd.conf (恢复失败)"
-            restored_files+=("/etc/dhcpcd.conf (恢复失败)")
+            failed_files+=("/etc/dhcpcd.conf")
+            failed_reasons+=("权限不足或文件被保护")
         fi
     fi
     echo
@@ -1481,42 +1502,25 @@ restore_network_config() {
     # 显示恢复总结
     _blue "📊 恢复总结:"
     
-    # 统计已恢复的项目
-    local restored_count=0
-    local skipped_count=0
-    local restored_list=()
-    local skipped_list=()
-    
-    # 分析restored_files数组，分类统计
-    for file in "${restored_files[@]}"; do
-        if [[ "$file" == *"恢复失败"* ]] || [[ "$file" == *"失败"* ]]; then
-            skipped_list+=("$file")
-            ((skipped_count++))
-        else
-            restored_list+=("$file")
-            ((restored_count++))
-        fi
-    done
-    
     # 显示已恢复的项目
-    if [ $restored_count -gt 0 ]; then
-        _green "✓ 已恢复 ($restored_count 项):"
-        for file in "${restored_list[@]}"; do
+    if [ ${#restored_files[@]} -gt 0 ]; then
+        _green "✓ 已恢复 (${#restored_files[@]} 项):"
+        for file in "${restored_files[@]}"; do
             echo "  • $file"
         done
     fi
     
-    # 显示跳过的项目
-    if [ $skipped_count -gt 0 ]; then
+    # 显示跳过的项目（失败的项目）
+    if [ ${#failed_files[@]} -gt 0 ]; then
         echo
-        _blue "⏭️ 跳过 ($skipped_count 项):"
-        for file in "${skipped_list[@]}"; do
-            echo "  • $file"
+        _blue "⏭️ 跳过 (${#failed_files[@]} 项):"
+        for i in "${!failed_files[@]}"; do
+            echo "  • ${failed_files[$i]} - ${failed_reasons[$i]}"
         done
     fi
     
     # 如果没有恢复任何项目
-    if [ $restored_count -eq 0 ] && [ $skipped_count -eq 0 ]; then
+    if [ ${#restored_files[@]} -eq 0 ] && [ ${#failed_files[@]} -eq 0 ]; then
         _yellow "⚠️ 没有恢复任何配置项"
     fi
     

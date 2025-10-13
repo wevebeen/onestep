@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.7.4"
+SCRIPT_VERSION="1.7.5"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -832,116 +832,288 @@ restore_network_config() {
         return 1
     fi
     
-    # 对比当前配置和备份配置
-    _blue "🔍 对比当前配置和备份配置..."
+    # 按分类对比当前配置和备份配置
+    _blue "🔍 按分类对比当前配置和备份配置..."
     local changed_files=()
-    local backup_files=("hostname" "hosts" "interfaces" "resolv.conf" "sshd_config" "ntp.conf" "chrony.conf" "environment" "exports" "smb.conf" "snmpd.conf" "dhcpd.conf" "dhcpcd.conf" "ufw_status.txt" "iptables_rules.txt" "iptables_nat.txt" "iptables_mangle.txt" "firewalld_config.txt" "current_interfaces.txt" "current_routes.txt")
-    local backup_dirs=("netplan" "NetworkManager")
+    echo
     
-    # 检查文件
-    for file in "${backup_files[@]}"; do
+    # 1. 基础系统配置对比
+    _yellow "1️⃣ 基础系统配置对比:"
+    local basic_files=("hostname" "hosts" "environment")
+    for file in "${basic_files[@]}"; do
         local backup_file="$selected_backup/$file"
         local current_file=""
         
         case "$file" in
-            "hostname")
-                current_file="/etc/hostname"
-                ;;
-            "hosts")
-                current_file="/etc/hosts"
-                ;;
-            "interfaces")
-                current_file="/etc/network/interfaces"
-                ;;
-            "resolv.conf")
-                current_file="/etc/resolv.conf"
-                ;;
-            "sshd_config")
-                current_file="/etc/ssh/sshd_config"
-                ;;
-            "ntp.conf")
-                current_file="/etc/ntp.conf"
-                ;;
-            "chrony.conf")
-                current_file="/etc/chrony.conf"
-                ;;
-            "environment")
-                current_file="/etc/environment"
-                ;;
-            "exports")
-                current_file="/etc/exports"
-                ;;
-            "smb.conf")
-                current_file="/etc/samba/smb.conf"
-                ;;
-            "snmpd.conf")
-                current_file="/etc/snmp/snmpd.conf"
-                ;;
-            "dhcpd.conf")
-                current_file="/etc/dhcp/dhcpd.conf"
-                ;;
-            "dhcpcd.conf")
-                current_file="/etc/dhcpcd.conf"
-                ;;
+            "hostname") current_file="/etc/hostname" ;;
+            "hosts") current_file="/etc/hosts" ;;
+            "environment") current_file="/etc/environment" ;;
         esac
         
-        # 显示所有文件的检查状态
         if [ -f "$backup_file" ] && [ -f "$current_file" ]; then
             if ! diff -q "$backup_file" "$current_file" >/dev/null 2>&1; then
                 changed_files+=("$file")
-                _yellow "📝 $file 有修改"
+                _yellow "  📝 $file 有修改"
             else
-                _green "✓ $file 无修改"
+                _green "  ✓ $file 无修改"
             fi
         elif [ -f "$backup_file" ] && [ ! -f "$current_file" ]; then
             changed_files+=("$file (备份存在，当前不存在)")
-            _yellow "📝 $file 备份存在，当前不存在"
-            _blue "ℹ️ 恢复时会创建文件: $current_file"
+            _blue "  ℹ️ 恢复时会创建文件: $current_file"
         elif [ ! -f "$backup_file" ] && [ -f "$current_file" ]; then
             changed_files+=("$file (备份不存在，当前存在)")
-            _yellow "📝 $file 备份不存在，当前存在"
-            _red "⚠️ 恢复时会删除当前文件: $current_file"
+            _red "  ⚠️ 恢复时会删除当前文件: $current_file"
         else
-            # 两个都不存在，显示跳过
-            _blue "⏭️ $file 跳过 (备份和当前都不存在)"
+            _blue "  ⏭️ $file 跳过 (备份和当前都不存在)"
+        fi
+    done
+    echo
+    
+    # 2. 网络接口配置对比
+    _yellow "2️⃣ 网络接口配置对比:"
+    local network_files=("interfaces")
+    local network_dirs=("netplan" "NetworkManager")
+    
+    for file in "${network_files[@]}"; do
+        local backup_file="$selected_backup/$file"
+        local current_file=""
+        
+        case "$file" in
+            "interfaces") current_file="/etc/network/interfaces" ;;
+        esac
+        
+        if [ -f "$backup_file" ] && [ -f "$current_file" ]; then
+            if ! diff -q "$backup_file" "$current_file" >/dev/null 2>&1; then
+                changed_files+=("$file")
+                _yellow "  📝 $file 有修改"
+            else
+                _green "  ✓ $file 无修改"
+            fi
+        elif [ -f "$backup_file" ] && [ ! -f "$current_file" ]; then
+            changed_files+=("$file (备份存在，当前不存在)")
+            _blue "  ℹ️ 恢复时会创建文件: $current_file"
+        elif [ ! -f "$backup_file" ] && [ -f "$current_file" ]; then
+            changed_files+=("$file (备份不存在，当前存在)")
+            _red "  ⚠️ 恢复时会删除当前文件: $current_file"
+        else
+            _blue "  ⏭️ $file 跳过 (备份和当前都不存在)"
         fi
     done
     
+    # 检查网络接口状态
+    if [ -f "$selected_backup/current_interfaces.txt" ]; then
+        _green "  ✓ 网络接口状态备份存在"
+    else
+        _blue "  ⏭️ 网络接口状态备份不存在"
+    fi
+    
     # 检查目录
-    for dir in "${backup_dirs[@]}"; do
+    for dir in "${network_dirs[@]}"; do
         local backup_dir="$selected_backup/$dir"
         local current_dir=""
         
         case "$dir" in
-            "netplan")
-                current_dir="/etc/netplan"
-                ;;
-            "NetworkManager")
-                current_dir="/etc/NetworkManager"
-                ;;
+            "netplan") current_dir="/etc/netplan" ;;
+            "NetworkManager") current_dir="/etc/NetworkManager" ;;
         esac
         
-        # 显示所有目录的检查状态
         if [ -d "$backup_dir" ] && [ -d "$current_dir" ]; then
             if ! diff -r "$backup_dir" "$current_dir" >/dev/null 2>&1; then
                 changed_files+=("$dir (目录有修改)")
-                _yellow "📝 $dir 目录有修改"
+                _yellow "  📝 $dir 目录有修改"
             else
-                _green "✓ $dir 目录无修改"
+                _green "  ✓ $dir 目录无修改"
             fi
         elif [ -d "$backup_dir" ] && [ ! -d "$current_dir" ]; then
             changed_files+=("$dir (备份存在，当前不存在)")
-            _yellow "📝 $dir 目录备份存在，当前不存在"
-            _blue "ℹ️ 恢复时会创建目录: $current_dir"
+            _blue "  ℹ️ 恢复时会创建目录: $current_dir"
         elif [ ! -d "$backup_dir" ] && [ -d "$current_dir" ]; then
             changed_files+=("$dir (备份不存在，当前存在)")
-            _yellow "📝 $dir 目录备份不存在，当前存在"
-            _red "⚠️ 恢复时会删除当前目录: $current_dir"
+            _red "  ⚠️ 恢复时会删除当前目录: $current_dir"
         else
-            # 两个都不存在，显示跳过
-            _blue "⏭️ $dir 跳过 (备份和当前都不存在)"
+            _blue "  ⏭️ $dir 跳过 (备份和当前都不存在)"
         fi
     done
+    echo
+    
+    # 3. DNS配置对比
+    _yellow "3️⃣ DNS配置对比:"
+    if [ -f "$selected_backup/resolv.conf" ] && [ -f "/etc/resolv.conf" ]; then
+        if ! diff -q "$selected_backup/resolv.conf" "/etc/resolv.conf" >/dev/null 2>&1; then
+            changed_files+=("resolv.conf")
+            _yellow "  📝 resolv.conf 有修改"
+        else
+            _green "  ✓ resolv.conf 无修改"
+        fi
+    elif [ -f "$selected_backup/resolv.conf" ] && [ ! -f "/etc/resolv.conf" ]; then
+        changed_files+=("resolv.conf (备份存在，当前不存在)")
+        _blue "  ℹ️ 恢复时会创建文件: /etc/resolv.conf"
+    elif [ ! -f "$selected_backup/resolv.conf" ] && [ -f "/etc/resolv.conf" ]; then
+        changed_files+=("resolv.conf (备份不存在，当前存在)")
+        _red "  ⚠️ 恢复时会删除当前文件: /etc/resolv.conf"
+    else
+        _blue "  ⏭️ resolv.conf 跳过 (备份和当前都不存在)"
+    fi
+    echo
+    
+    # 4. 防火墙配置对比
+    _yellow "4️⃣ 防火墙配置对比:"
+    local firewall_files=("ufw_status.txt" "iptables_rules.txt" "iptables_nat.txt" "iptables_mangle.txt" "firewalld_config.txt")
+    for file in "${firewall_files[@]}"; do
+        local backup_file="$selected_backup/$file"
+        if [ -f "$backup_file" ]; then
+            _green "  ✓ $file 备份存在"
+        else
+            _blue "  ⏭️ $file 跳过 (备份不存在)"
+        fi
+    done
+    echo
+    
+    # 5. 网络转发配置对比
+    _yellow "5️⃣ 网络转发配置对比:"
+    local forward_files=("ipv4_forward.txt" "ipv6_forward.txt")
+    for file in "${forward_files[@]}"; do
+        local backup_file="$selected_backup/$file"
+        if [ -f "$backup_file" ]; then
+            _green "  ✓ $file 备份存在"
+        else
+            _blue "  ⏭️ $file 跳过 (备份不存在)"
+        fi
+    done
+    echo
+    
+    # 6. SSH配置对比
+    _yellow "6️⃣ SSH配置对比:"
+    if [ -f "$selected_backup/sshd_config" ] && [ -f "/etc/ssh/sshd_config" ]; then
+        if ! diff -q "$selected_backup/sshd_config" "/etc/ssh/sshd_config" >/dev/null 2>&1; then
+            changed_files+=("sshd_config")
+            _yellow "  📝 sshd_config 有修改"
+        else
+            _green "  ✓ sshd_config 无修改"
+        fi
+    elif [ -f "$selected_backup/sshd_config" ] && [ ! -f "/etc/ssh/sshd_config" ]; then
+        changed_files+=("sshd_config (备份存在，当前不存在)")
+        _blue "  ℹ️ 恢复时会创建文件: /etc/ssh/sshd_config"
+    elif [ ! -f "$selected_backup/sshd_config" ] && [ -f "/etc/ssh/sshd_config" ]; then
+        changed_files+=("sshd_config (备份不存在，当前存在)")
+        _red "  ⚠️ 恢复时会删除当前文件: /etc/ssh/sshd_config"
+    else
+        _blue "  ⏭️ sshd_config 跳过 (备份和当前都不存在)"
+    fi
+    echo
+    
+    # 7. 时间同步配置对比
+    _yellow "7️⃣ 时间同步配置对比:"
+    local time_files=("ntp.conf" "chrony.conf")
+    for file in "${time_files[@]}"; do
+        local backup_file="$selected_backup/$file"
+        local current_file=""
+        
+        case "$file" in
+            "ntp.conf") current_file="/etc/ntp.conf" ;;
+            "chrony.conf") current_file="/etc/chrony.conf" ;;
+        esac
+        
+        if [ -f "$backup_file" ] && [ -f "$current_file" ]; then
+            if ! diff -q "$backup_file" "$current_file" >/dev/null 2>&1; then
+                changed_files+=("$file")
+                _yellow "  📝 $file 有修改"
+            else
+                _green "  ✓ $file 无修改"
+            fi
+        elif [ -f "$backup_file" ] && [ ! -f "$current_file" ]; then
+            changed_files+=("$file (备份存在，当前不存在)")
+            _blue "  ℹ️ 恢复时会创建文件: $current_file"
+        elif [ ! -f "$backup_file" ] && [ -f "$current_file" ]; then
+            changed_files+=("$file (备份不存在，当前存在)")
+            _red "  ⚠️ 恢复时会删除当前文件: $current_file"
+        else
+            _blue "  ⏭️ $file 跳过 (备份和当前都不存在)"
+        fi
+    done
+    echo
+    
+    # 8. 网络存储配置对比
+    _yellow "8️⃣ 网络存储配置对比:"
+    local storage_files=("exports" "smb.conf")
+    for file in "${storage_files[@]}"; do
+        local backup_file="$selected_backup/$file"
+        local current_file=""
+        
+        case "$file" in
+            "exports") current_file="/etc/exports" ;;
+            "smb.conf") current_file="/etc/samba/smb.conf" ;;
+        esac
+        
+        if [ -f "$backup_file" ] && [ -f "$current_file" ]; then
+            if ! diff -q "$backup_file" "$current_file" >/dev/null 2>&1; then
+                changed_files+=("$file")
+                _yellow "  📝 $file 有修改"
+            else
+                _green "  ✓ $file 无修改"
+            fi
+        elif [ -f "$backup_file" ] && [ ! -f "$current_file" ]; then
+            changed_files+=("$file (备份存在，当前不存在)")
+            _blue "  ℹ️ 恢复时会创建文件: $current_file"
+        elif [ ! -f "$backup_file" ] && [ -f "$current_file" ]; then
+            changed_files+=("$file (备份不存在，当前存在)")
+            _red "  ⚠️ 恢复时会删除当前文件: $current_file"
+        else
+            _blue "  ⏭️ $file 跳过 (备份和当前都不存在)"
+        fi
+    done
+    echo
+    
+    # 9. 网络监控配置对比
+    _yellow "9️⃣ 网络监控配置对比:"
+    if [ -f "$selected_backup/snmpd.conf" ] && [ -f "/etc/snmp/snmpd.conf" ]; then
+        if ! diff -q "$selected_backup/snmpd.conf" "/etc/snmp/snmpd.conf" >/dev/null 2>&1; then
+            changed_files+=("snmpd.conf")
+            _yellow "  📝 snmpd.conf 有修改"
+        else
+            _green "  ✓ snmpd.conf 无修改"
+        fi
+    elif [ -f "$selected_backup/snmpd.conf" ] && [ ! -f "/etc/snmp/snmpd.conf" ]; then
+        changed_files+=("snmpd.conf (备份存在，当前不存在)")
+        _blue "  ℹ️ 恢复时会创建文件: /etc/snmp/snmpd.conf"
+    elif [ ! -f "$selected_backup/snmpd.conf" ] && [ -f "/etc/snmp/snmpd.conf" ]; then
+        changed_files+=("snmpd.conf (备份不存在，当前存在)")
+        _red "  ⚠️ 恢复时会删除当前文件: /etc/snmp/snmpd.conf"
+    else
+        _blue "  ⏭️ snmpd.conf 跳过 (备份和当前都不存在)"
+    fi
+    echo
+    
+    # 10. DHCP配置对比
+    _yellow "🔟 DHCP配置对比:"
+    local dhcp_files=("dhcpd.conf" "dhcpcd.conf")
+    for file in "${dhcp_files[@]}"; do
+        local backup_file="$selected_backup/$file"
+        local current_file=""
+        
+        case "$file" in
+            "dhcpd.conf") current_file="/etc/dhcp/dhcpd.conf" ;;
+            "dhcpcd.conf") current_file="/etc/dhcpcd.conf" ;;
+        esac
+        
+        if [ -f "$backup_file" ] && [ -f "$current_file" ]; then
+            if ! diff -q "$backup_file" "$current_file" >/dev/null 2>&1; then
+                changed_files+=("$file")
+                _yellow "  📝 $file 有修改"
+            else
+                _green "  ✓ $file 无修改"
+            fi
+        elif [ -f "$backup_file" ] && [ ! -f "$current_file" ]; then
+            changed_files+=("$file (备份存在，当前不存在)")
+            _blue "  ℹ️ 恢复时会创建文件: $current_file"
+        elif [ ! -f "$backup_file" ] && [ -f "$current_file" ]; then
+            changed_files+=("$file (备份不存在，当前存在)")
+            _red "  ⚠️ 恢复时会删除当前文件: $current_file"
+        else
+            _blue "  ⏭️ $file 跳过 (备份和当前都不存在)"
+        fi
+    done
+    echo
     
     if [ ${#changed_files[@]} -gt 0 ]; then
         echo

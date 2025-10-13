@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.10"
+SCRIPT_VERSION="1.7.0"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -96,12 +96,10 @@ show_menu() {
     echo
     _yellow "请选择操作:"
     echo "1. 全面查看网络环境"
-    echo "2. 备份当前网络环境"
-    echo "3. 检测22端口"
+    echo "2. 查看备份列表"
+    echo "3. 备份当前网络环境"
     echo "4. 恢复网络配置"
-    echo "5. 查看备份列表"
-    echo "6. 修复权限问题"
-    echo "7. 快速启用保护"
+    echo "5. 检测22端口"
     echo "0. 退出"
     echo
 }
@@ -768,96 +766,6 @@ view_backup_list() {
     return 1
 }
 
-# 6. 修复权限问题
-fix_permissions() {
-    _blue "=== 修复权限问题 ==="
-    
-    local files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
-    local fixed_count=0
-    
-    _blue "🔍 检查文件权限..."
-    for file in "${files[@]}"; do
-        if [ -f "$file" ]; then
-            _blue "检查: $file"
-            
-            # 检查文件属性
-            if command -v lsattr >/dev/null 2>&1; then
-                local attrs=$(lsattr "$file" 2>/dev/null | cut -d' ' -f1)
-                if [[ "$attrs" == *"i"* ]]; then
-                    _yellow "  - 文件被标记为不可变"
-                    if chattr -i "$file" 2>/dev/null; then
-                        _green "  ✓ 已解除不可变属性"
-                        ((fixed_count++))
-                    else
-                        _red "  ❌ 解除不可变属性失败"
-                    fi
-                else
-                    _green "  ✓ 文件属性正常"
-                fi
-            fi
-            
-            # 检查文件权限
-            if [ ! -w "$file" ]; then
-                _yellow "  - 文件不可写"
-                if chmod 644 "$file" 2>/dev/null; then
-                    _green "  ✓ 已修复文件权限"
-                    ((fixed_count++))
-                else
-                    _red "  ❌ 修复文件权限失败"
-                fi
-            else
-                _green "  ✓ 文件权限正常"
-            fi
-        else
-            _yellow "  - 文件不存在: $file"
-        fi
-        echo
-    done
-    
-    if [ $fixed_count -gt 0 ]; then
-        _green "✓ 已修复 $fixed_count 个权限问题"
-        
-        # 询问是否重新设置保护
-        echo
-        _yellow "🔒 是否重新设置文件保护以防止被恶意修改？"
-        echo -n "请输入选择 (y/N): "
-        read -r protect_choice
-        protect_choice=$(echo "$protect_choice" | xargs | tr '[:upper:]' '[:lower:]')
-        
-        if [ "$protect_choice" = "y" ] || [ "$protect_choice" = "yes" ]; then
-            _blue "🔒 重新设置文件保护..."
-            local protected_count=0
-            
-            for file in "${files[@]}"; do
-                if [ -f "$file" ]; then
-                    # 设置文件为不可变
-                    if command -v chattr >/dev/null 2>&1; then
-                        if chattr +i "$file" 2>/dev/null; then
-                            _green "✓ 已保护: $file"
-                            ((protected_count++))
-                        else
-                            _red "❌ 保护失败: $file"
-                        fi
-                    fi
-                fi
-            done
-            
-            if [ $protected_count -gt 0 ]; then
-                _green "✓ 已保护 $protected_count 个文件"
-                _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
-            fi
-        else
-            _yellow "⚠️ 文件未设置保护，请注意安全"
-        fi
-    else
-        _green "✓ 所有文件权限正常"
-    fi
-    
-    echo
-    echo -n "按回车键继续..."
-    read
-    return 1
-}
 
 # 4. 恢复网络配置
 restore_network_config() {
@@ -1265,44 +1173,6 @@ restore_network_config() {
     return 1
 }
 
-# 7. 快速启用保护
-quick_protect() {
-    _blue "=== 快速启用文件保护 ==="
-    
-    local files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
-    local protected_count=0
-    
-    _blue "🔒 正在启用文件保护..."
-    for file in "${files[@]}"; do
-        if [ -f "$file" ]; then
-            _blue "保护: $file"
-            if command -v chattr >/dev/null 2>&1; then
-                if chattr +i "$file" 2>/dev/null; then
-                    _green "✓ 已保护: $file"
-                    ((protected_count++))
-                else
-                    _red "❌ 保护失败: $file"
-                fi
-            else
-                _yellow "⚠️ chattr命令不可用，无法设置保护"
-            fi
-        else
-            _yellow "⚠️ 文件不存在: $file"
-        fi
-    done
-    
-    if [ $protected_count -gt 0 ]; then
-        _green "✓ 已保护 $protected_count 个文件"
-        _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
-    else
-        _yellow "⚠️ 没有文件被保护"
-    fi
-    
-    echo
-    echo -n "按回车键继续..."
-    read
-    return 1
-}
 
 # 处理菜单选择
 handle_menu_choice() {
@@ -1312,11 +1182,11 @@ handle_menu_choice() {
             return 1
             ;;
         "2")
-            backup_network_config
+            view_backup_list
             return 1
             ;;
         "3")
-            check_ssh_port
+            backup_network_config
             return 1
             ;;
         "4")
@@ -1324,15 +1194,7 @@ handle_menu_choice() {
             return 1
             ;;
         "5")
-            view_backup_list
-            return 1
-            ;;
-        "6")
-            fix_permissions
-            return 1
-            ;;
-        "7")
-            quick_protect
+            check_ssh_port
             return 1
             ;;
         "0")
@@ -1362,12 +1224,10 @@ show_help() {
     _yellow "使用方法:"
     echo "  $0          - 启动交互式菜单"
     echo "  $0 view     - 全面查看网络环境"
-    echo "  $0 backup   - 备份当前网络环境"
-    echo "  $0 check    - 检测22端口"
-    echo "  $0 restore  - 恢复网络配置"
     echo "  $0 list     - 查看备份列表"
-    echo "  $0 fix      - 修复权限问题"
-    echo "  $0 protect  - 快速启用保护"
+    echo "  $0 backup   - 备份当前网络环境"
+    echo "  $0 restore  - 恢复网络配置"
+    echo "  $0 check    - 检测22端口"
     echo "  $0 help     - 显示帮助信息"
     echo
 }
@@ -1382,7 +1242,7 @@ main() {
         # 交互式菜单模式
         while true; do
             show_menu
-            echo -n "请输入选择 (0-7): "
+            echo -n "请输入选择 (0-5): "
             read choice
             choice=$(echo "$choice" | xargs)
             
@@ -1393,26 +1253,20 @@ main() {
     else
         # 命令行模式
         case "$1" in
-            "view")
-                view_comprehensive_network
-                ;;
-            "backup")
-                backup_network_config
-                ;;
-            "check")
-                check_ssh_port
-                ;;
-               "restore")
-                   restore_network_config
+               "view")
+                   view_comprehensive_network
                    ;;
                "list")
                    view_backup_list
                    ;;
-               "fix")
-                   fix_permissions
+               "backup")
+                   backup_network_config
                    ;;
-               "protect")
-                   quick_protect
+               "restore")
+                   restore_network_config
+                   ;;
+               "check")
+                   check_ssh_port
                    ;;
                "help")
                    show_help

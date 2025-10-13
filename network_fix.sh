@@ -371,6 +371,9 @@ show_menu() {
 handle_menu_choice() {
     local choice="$1"
     
+    # 去除前后空格
+    choice=$(echo "$choice" | xargs)
+    
     case "$choice" in
         "1"|"backup")
             create_network_backup
@@ -443,8 +446,12 @@ handle_menu_choice() {
             _green "感谢使用！"
             return 0
             ;;
+        "")
+            # 空输入，继续循环
+            return 1
+            ;;
         *)
-            _red "❌ 无效的选择，请重新输入"
+            _red "❌ 无效的选择: '$choice'，请重新输入"
             return 1
             ;;
     esac

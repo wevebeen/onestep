@@ -4,8 +4,8 @@
 # 脚本来源：https://virt.spiritlhl.net/guide/pve/pve_install.html
 
 # 版本信息
-SCRIPT_VERSION="1.0.3"
-SCRIPT_BUILD="20251013-095519"
+SCRIPT_VERSION="1.0.4"
+SCRIPT_BUILD="20251013-095549"
 SCRIPT_NAME="PVE一键安装脚本"
 
 # 脚本配置

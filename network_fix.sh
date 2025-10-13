@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.0"
+SCRIPT_VERSION="1.6.2"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -671,7 +671,7 @@ view_backup_list() {
     choice=$(echo "$choice" | xargs)
     
     if [ -z "$choice" ]; then
-        return 0
+        return 1
     fi
     
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#backups[@]} )); then
@@ -707,6 +707,11 @@ view_backup_list() {
     
     _green "✓ 备份查看完成"
     log "查看备份: $(basename "$selected_backup_path")"
+    
+    echo
+    echo -n "按回车键继续..."
+    read
+    return 1
 }
 
 # 4. 恢复网络配置
@@ -880,18 +885,23 @@ handle_menu_choice() {
     case "$1" in
         "1")
             view_comprehensive_network
+            return 1
             ;;
         "2")
             backup_network_config
+            return 1
             ;;
         "3")
             check_ssh_port
+            return 1
             ;;
         "4")
             restore_network_config
+            return 1
             ;;
         "5")
             view_backup_list
+            return 1
             ;;
         "6")
             _green "感谢使用！"
@@ -909,7 +919,6 @@ handle_menu_choice() {
     echo
     echo -n "按回车键继续..."
     read
-    return 1
 }
 
 # 显示帮助信息

@@ -1,10 +1,10 @@
 #!/bin/bash
 # 网络环境检测与修复脚本
 # 包含全面的网络检测、备份和修复功能
-# 支持初始备份、当前备份、故障诊断和网络修复
+# 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.0.2"
+SCRIPT_VERSION="1.1.0"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -77,14 +77,27 @@ check_initial_backup_exists() {
     return 1
 }
 
-# 创建初始网络环境备份
-create_initial_backup() {
-    _blue "=== 创建初始网络环境备份 ==="
+# 创建网络配置备份（带备注）
+create_network_backup() {
+    _blue "=== 创建网络配置备份 ==="
     
-    local backup_name="initial_$(date '+%Y%m%d_%H%M%S')"
-    local backup_path="$BACKUP_DIR/initial"
+    # 获取用户输入的备注
+    echo -n "请输入备份备注: "
+    read backup_note
+    
+    if [ -z "$backup_note" ]; then
+        backup_note="手动备份"
+    fi
+    
+    local backup_name="backup_$(date '+%Y%m%d_%H%M%S')"
+    local backup_path="$BACKUP_DIR/$backup_name"
     
     mkdir -p "$backup_path"
+    
+    # 保存备注信息
+    echo "备份时间: $(date '+%Y-%m-%d %H:%M:%S')" > "$backup_path/backup_info.txt"
+    echo "备份备注: $backup_note" >> "$backup_path/backup_info.txt"
+    echo "备份类型: 手动备份" >> "$backup_path/backup_info.txt"
     
     # 备份网络配置文件
     local config_files=(
@@ -133,6 +146,372 @@ create_initial_backup() {
     _green "备份大小: $backup_size"
     
     log_message "初始备份创建完成: $backup_path"
+}
+
+# 创建网络配置备份（带备注）
+create_network_backup() {
+    _blue "=== 创建网络配置备份 ==="
+    
+    # 获取用户输入的备注
+    echo -n "请输入备份备注: "
+    read backup_note
+    
+    if [ -z "$backup_note" ]; then
+        backup_note="手动备份"
+    fi
+    
+    local backup_name="backup_$(date '+%Y%m%d_%H%M%S')"
+    local backup_path="$BACKUP_DIR/$backup_name"
+    
+    mkdir -p "$backup_path"
+    
+    # 保存备注信息
+    echo "备份时间: $(date '+%Y-%m-%d %H:%M:%S')" > "$backup_path/backup_info.txt"
+    echo "备份备注: $backup_note" >> "$backup_path/backup_info.txt"
+    echo "备份类型: 手动备份" >> "$backup_path/backup_info.txt"
+    
+    # 备份网络配置文件
+    local config_files=(
+        "/etc/network/interfaces"
+        "/etc/netplan"
+        "/etc/systemd/network"
+        "/etc/resolv.conf"
+        "/etc/hosts"
+        "/etc/hostname"
+    )
+    
+    for config_file in "${config_files[@]}"; do
+        if [ -e "$config_file" ]; then
+            if [ -d "$config_file" ]; then
+                cp -r "$config_file" "$backup_path/" 2>/dev/null || true
+            else
+                cp "$config_file" "$backup_path/" 2>/dev/null || true
+            fi
+        fi
+    done
+    
+    # 备份防火墙规则
+    if command -v iptables &>/dev/null; then
+        iptables-save > "$backup_path/iptables_rules.txt" 2>/dev/null || true
+    fi
+    
+    if command -v ufw &>/dev/null; then
+        ufw status > "$backup_path/ufw_status.txt" 2>/dev/null || true
+    fi
+    
+    if command -v firewall-cmd &>/dev/null; then
+        firewall-cmd --list-all > "$backup_path/firewalld_rules.txt" 2>/dev/null || true
+    fi
+    
+    # 备份网络服务状态
+    systemctl list-units --type=service --state=running | grep -E "(network|firewall|dns)" > "$backup_path/network_services.txt" 2>/dev/null || true
+    
+    # 备份网络接口信息
+    ip addr show > "$backup_path/network_interfaces.txt" 2>/dev/null || true
+    ip route show > "$backup_path/routing_table.txt" 2>/dev/null || true
+    
+    _green "✓ 网络配置备份创建成功"
+    _green "备份路径: $backup_path"
+    _green "备份备注: $backup_note"
+    
+    local backup_size=$(du -sh "$backup_path" 2>/dev/null | cut -f1)
+    _green "备份大小: $backup_size"
+    
+    log_message "网络配置备份创建完成: $backup_path"
+}
+
+# 查看网络配置和备份
+view_network_config() {
+    _blue "=== 查看网络配置 ==="
+    
+    echo
+    _yellow "当前网络配置:"
+    echo "----------------------------------------"
+    
+    # 显示当前网络接口
+    _green "网络接口:"
+    ip addr show | grep -E "^[0-9]+:|inet " | sed 's/^/  /'
+    
+    # 显示路由表
+    _green "路由表:"
+    ip route show | sed 's/^/  /'
+    
+    # 显示DNS配置
+    _green "DNS配置:"
+    cat /etc/resolv.conf | sed 's/^/  /'
+    
+    # 显示防火墙状态
+    _green "防火墙状态:"
+    if command -v ufw &>/dev/null; then
+        ufw status | sed 's/^/  /'
+    elif command -v firewall-cmd &>/dev/null; then
+        firewall-cmd --list-all | sed 's/^/  /'
+    else
+        echo "  未检测到防火墙服务"
+    fi
+    
+    echo
+    _yellow "备份配置列表:"
+    echo "----------------------------------------"
+    
+    if [ -d "$BACKUP_DIR" ]; then
+        local backup_count=0
+        for backup_dir in "$BACKUP_DIR"/*; do
+            if [ -d "$backup_dir" ] && [ -f "$backup_dir/backup_info.txt" ]; then
+                backup_count=$((backup_count + 1))
+                local backup_name=$(basename "$backup_dir")
+                local backup_time=$(grep "备份时间:" "$backup_dir/backup_info.txt" | cut -d': ' -f2)
+                local backup_note=$(grep "备份备注:" "$backup_dir/backup_info.txt" | cut -d': ' -f2)
+                
+                _green "备份 $backup_count: $backup_name"
+                echo "  时间: $backup_time"
+                echo "  备注: $backup_note"
+                echo
+            fi
+        done
+        
+        if [ $backup_count -eq 0 ]; then
+            _yellow "  暂无备份配置"
+        fi
+    else
+        _yellow "  备份目录不存在"
+    fi
+}
+
+# 恢复网络配置
+restore_network_config() {
+    _blue "=== 恢复网络配置 ==="
+    
+    if [ ! -d "$BACKUP_DIR" ]; then
+        _red "❌ 备份目录不存在"
+        return 1
+    fi
+    
+    # 显示可用的备份
+    local backups=()
+    local backup_count=0
+    
+    for backup_dir in "$BACKUP_DIR"/*; do
+        if [ -d "$backup_dir" ] && [ -f "$backup_dir/backup_info.txt" ]; then
+            backup_count=$((backup_count + 1))
+            backups+=("$backup_dir")
+            
+            local backup_name=$(basename "$backup_dir")
+            local backup_time=$(grep "备份时间:" "$backup_dir/backup_info.txt" | cut -d': ' -f2)
+            local backup_note=$(grep "备份备注:" "$backup_dir/backup_info.txt" | cut -d': ' -f2)
+            
+            echo "$backup_count. $backup_name"
+            echo "   时间: $backup_time"
+            echo "   备注: $backup_note"
+            echo
+        fi
+    done
+    
+    if [ $backup_count -eq 0 ]; then
+        _red "❌ 没有可用的备份配置"
+        return 1
+    fi
+    
+    # 选择要恢复的备份
+    echo -n "请选择要恢复的备份 (1-$backup_count): "
+    read choice
+    
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "$backup_count" ]; then
+        _red "❌ 无效的选择"
+        return 1
+    fi
+    
+    local selected_backup="${backups[$((choice-1))]}"
+    local backup_name=$(basename "$selected_backup")
+    
+    _yellow "选择的备份: $backup_name"
+    
+    # 显示将要进行的修改
+    _blue "=== 将要进行的修改 ==="
+    
+    local changes_found=0
+    
+    # 检查网络接口配置
+    if [ -f "$selected_backup/interfaces" ] && [ -f "/etc/network/interfaces" ]; then
+        if ! diff -q "$selected_backup/interfaces" "/etc/network/interfaces" >/dev/null 2>&1; then
+            _yellow "📝 网络接口配置 (/etc/network/interfaces) 将被修改"
+            changes_found=1
+        fi
+    fi
+    
+    # 检查DNS配置
+    if [ -f "$selected_backup/resolv.conf" ] && [ -f "/etc/resolv.conf" ]; then
+        if ! diff -q "$selected_backup/resolv.conf" "/etc/resolv.conf" >/dev/null 2>&1; then
+            _yellow "📝 DNS配置 (/etc/resolv.conf) 将被修改"
+            changes_found=1
+        fi
+    fi
+    
+    # 检查主机配置
+    if [ -f "$selected_backup/hosts" ] && [ -f "/etc/hosts" ]; then
+        if ! diff -q "$selected_backup/hosts" "/etc/hosts" >/dev/null 2>&1; then
+            _yellow "📝 主机配置 (/etc/hosts) 将被修改"
+            changes_found=1
+        fi
+    fi
+    
+    # 检查主机名
+    if [ -f "$selected_backup/hostname" ] && [ -f "/etc/hostname" ]; then
+        if ! diff -q "$selected_backup/hostname" "/etc/hostname" >/dev/null 2>&1; then
+            _yellow "📝 主机名 (/etc/hostname) 将被修改"
+            changes_found=1
+        fi
+    fi
+    
+    if [ $changes_found -eq 0 ]; then
+        _green "✅ 当前配置与备份配置相同，无需恢复"
+        return 0
+    fi
+    
+    echo
+    _red "⚠️  警告: 此操作将修改网络配置，可能导致网络连接中断！"
+    echo -n "确认要恢复网络配置吗？(yes/no): "
+    read confirm
+    
+    if [ "$confirm" != "yes" ]; then
+        _yellow "❌ 用户取消恢复操作"
+        return 1
+    fi
+    
+    # 执行恢复操作
+    _blue "=== 开始恢复网络配置 ==="
+    
+    # 恢复网络接口配置
+    if [ -f "$selected_backup/interfaces" ]; then
+        _yellow "恢复网络接口配置..."
+        cp "$selected_backup/interfaces" "/etc/network/interfaces"
+        _green "✓ 网络接口配置已恢复"
+    fi
+    
+    # 恢复DNS配置
+    if [ -f "$selected_backup/resolv.conf" ]; then
+        _yellow "恢复DNS配置..."
+        cp "$selected_backup/resolv.conf" "/etc/resolv.conf"
+        _green "✓ DNS配置已恢复"
+    fi
+    
+    # 恢复主机配置
+    if [ -f "$selected_backup/hosts" ]; then
+        _yellow "恢复主机配置..."
+        cp "$selected_backup/hosts" "/etc/hosts"
+        _green "✓ 主机配置已恢复"
+    fi
+    
+    # 恢复主机名
+    if [ -f "$selected_backup/hostname" ]; then
+        _yellow "恢复主机名..."
+        cp "$selected_backup/hostname" "/etc/hostname"
+        hostnamectl set-hostname "$(cat /etc/hostname)"
+        _green "✓ 主机名已恢复"
+    fi
+    
+    # 重启网络服务
+    _yellow "重启网络服务..."
+    systemctl restart networking
+    systemctl restart systemd-resolved
+    
+    _green "✅ 网络配置恢复完成"
+    _yellow "建议重启系统以确保所有配置生效"
+    
+    log_message "网络配置恢复完成: $backup_name"
+}
+
+# 显示主菜单
+show_menu() {
+    _blue "=========================================="
+    _blue "        $SCRIPT_NAME v$SCRIPT_VERSION"
+    _blue "        构建时间: $SCRIPT_BUILD"
+    _blue "=========================================="
+    echo
+    _yellow "请选择操作:"
+    echo "1. 备份网络配置（带备注）"
+    echo "2. 查看网络配置和备份"
+    echo "3. 恢复网络配置"
+    echo "4. 网络诊断和修复"
+    echo "5. SSH端口检测（仅显示成功）"
+    echo "6. 退出"
+    echo
+}
+
+# 处理菜单选择
+handle_menu_choice() {
+    local choice="$1"
+    
+    case "$choice" in
+        "1"|"backup")
+            create_network_backup
+            ;;
+        "2"|"view")
+            view_network_config
+            ;;
+        "3"|"restore")
+            restore_network_config
+            ;;
+        "4"|"diagnose")
+            # 检查并创建初始备份
+            if ! check_initial_backup_exists; then
+                create_initial_backup
+                echo
+            fi
+            
+            # 更新当前备份
+            update_current_backup
+            echo
+            
+            # 诊断网络问题
+            if diagnose_network_issues; then
+                _green "🎉 网络环境正常！"
+                echo
+                
+                # 测试SSH端口外网访问
+                test_external_ssh_access
+                echo
+                
+                # 生成正常状态报告
+                generate_network_report
+            else
+                _yellow "⚠ 发现网络问题，开始修复..."
+                echo
+                
+                # 创建故障报告
+                create_fault_report
+                echo
+                
+                # 修复网络问题
+                fix_network_issues
+                echo
+                
+                # 验证修复结果
+                if verify_network_status; then
+                    _green "🎉 网络问题修复成功！"
+                else
+                    _red "❌ 网络问题修复失败，请检查报告文件"
+                fi
+                echo
+                
+                # 测试SSH端口外网访问
+                test_external_ssh_access
+                echo
+                
+                # 生成修复后报告
+                generate_network_report
+            fi
+            ;;
+        "5"|"ssh")
+            test_external_ssh_access
+            ;;
+        "6"|"exit"|"quit")
+            _green "感谢使用！"
+            ;;
+        *)
+            _red "❌ 无效的选择，请重新输入"
+            ;;
+    esac
 }
 
 # 更新当前网络状态备份
@@ -959,63 +1338,32 @@ main() {
     # 初始化日志
     echo "网络修复脚本日志 - $(date)" > "$LOG_FILE"
     
-    _blue "=========================================="
-    _blue "        $SCRIPT_NAME v$SCRIPT_VERSION"
-    _blue "        构建时间: $SCRIPT_BUILD"
-    _blue "=========================================="
-    echo
-    
     # 环境检查
     check_server_environment
     echo
     
-    # 检查并创建初始备份
-    if ! check_initial_backup_exists; then
-        create_initial_backup
-        echo
-    fi
-    
-    # 更新当前备份
-    update_current_backup
-    echo
-    
-    # 诊断网络问题
-    if diagnose_network_issues; then
-        _green "🎉 网络环境正常！"
-        echo
-        
-        # 测试SSH端口外网访问
-        test_external_ssh_access
-        echo
-        
-        # 生成正常状态报告
-        generate_network_report
+    # 检查命令行参数
+    if [ $# -gt 0 ]; then
+        # 如果有命令行参数，直接执行对应功能
+        handle_menu_choice "$1"
     else
-        _yellow "⚠ 发现网络问题，开始修复..."
-        echo
-        
-        # 创建故障报告
-        create_fault_report
-        echo
-        
-        # 修复网络问题
-        fix_network_issues
-        echo
-        
-        # 验证修复结果
-        if verify_network_status; then
-            _green "🎉 网络问题修复成功！"
-        else
-            _red "❌ 网络问题修复失败，请检查报告文件"
-        fi
-        echo
-        
-        # 测试SSH端口外网访问
-        test_external_ssh_access
-        echo
-        
-        # 生成修复后报告
-        generate_network_report
+        # 交互式菜单模式
+        while true; do
+            show_menu
+            echo -n "请输入选择 (1-6): "
+            read choice
+            echo
+            
+            handle_menu_choice "$choice"
+            
+            if [ "$choice" = "6" ]; then
+                break
+            fi
+            
+            echo
+            echo -n "按回车键继续..."
+            read
+        done
     fi
     
     echo

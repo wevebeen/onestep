@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.6.5"
+SCRIPT_VERSION="1.6.6"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -101,7 +101,8 @@ show_menu() {
     echo "4. 恢复网络配置"
     echo "5. 查看备份列表"
     echo "6. 修复权限问题"
-    echo "7. 退出"
+    echo "7. 快速启用保护"
+    echo "8. 退出"
     echo
 }
 
@@ -1053,6 +1054,76 @@ restore_network_config() {
     
     log "恢复备份: $selected_backup"
     
+    # 询问是否启用文件保护
+    echo
+    _yellow "🔒 恢复完成，是否立即启用文件保护？"
+    echo -n "请输入选择 (Y/n): "
+    read -r protect_choice
+    protect_choice=$(echo "$protect_choice" | xargs | tr '[:upper:]' '[:lower:]')
+    
+    if [ "$protect_choice" != "n" ] && [ "$protect_choice" != "no" ]; then
+        _blue "🔒 启用文件保护..."
+        local protected_files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
+        local protected_count=0
+        
+        for file in "${protected_files[@]}"; do
+            if [ -f "$file" ] && command -v chattr >/dev/null 2>&1; then
+                if chattr +i "$file" 2>/dev/null; then
+                    _green "✓ 已保护: $file"
+                    ((protected_count++))
+                else
+                    _red "❌ 保护失败: $file"
+                fi
+            fi
+        done
+        
+        if [ $protected_count -gt 0 ]; then
+            _green "✓ 已保护 $protected_count 个文件"
+            _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
+        fi
+    else
+        _yellow "⚠️ 文件未设置保护，请注意安全"
+    fi
+    
+    echo
+    echo -n "按回车键继续..."
+    read
+    return 1
+}
+
+# 7. 快速启用保护
+quick_protect() {
+    _blue "=== 快速启用文件保护 ==="
+    
+    local files=("/etc/hostname" "/etc/hosts" "/etc/network/interfaces" "/etc/resolv.conf")
+    local protected_count=0
+    
+    _blue "🔒 正在启用文件保护..."
+    for file in "${files[@]}"; do
+        if [ -f "$file" ]; then
+            _blue "保护: $file"
+            if command -v chattr >/dev/null 2>&1; then
+                if chattr +i "$file" 2>/dev/null; then
+                    _green "✓ 已保护: $file"
+                    ((protected_count++))
+                else
+                    _red "❌ 保护失败: $file"
+                fi
+            else
+                _yellow "⚠️ chattr命令不可用，无法设置保护"
+            fi
+        else
+            _yellow "⚠️ 文件不存在: $file"
+        fi
+    done
+    
+    if [ $protected_count -gt 0 ]; then
+        _green "✓ 已保护 $protected_count 个文件"
+        _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
+    else
+        _yellow "⚠️ 没有文件被保护"
+    fi
+    
     echo
     echo -n "按回车键继续..."
     read
@@ -1087,6 +1158,10 @@ handle_menu_choice() {
             return 1
             ;;
         "7")
+            quick_protect
+            return 1
+            ;;
+        "8")
             _green "感谢使用！"
             return 0
             ;;
@@ -1118,6 +1193,7 @@ show_help() {
     echo "  $0 restore  - 恢复网络配置"
     echo "  $0 list     - 查看备份列表"
     echo "  $0 fix      - 修复权限问题"
+    echo "  $0 protect  - 快速启用保护"
     echo "  $0 help     - 显示帮助信息"
     echo
 }
@@ -1132,7 +1208,7 @@ main() {
         # 交互式菜单模式
         while true; do
             show_menu
-            echo -n "请输入选择 (1-7): "
+            echo -n "请输入选择 (1-8): "
             read choice
             choice=$(echo "$choice" | xargs)
             
@@ -1160,6 +1236,9 @@ main() {
                    ;;
                "fix")
                    fix_permissions
+                   ;;
+               "protect")
+                   quick_protect
                    ;;
                "help")
                    show_help

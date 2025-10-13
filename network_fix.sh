@@ -139,77 +139,6 @@ create_network_backup() {
     ip addr show > "$backup_path/network_interfaces.txt" 2>/dev/null || true
     ip route show > "$backup_path/routing_table.txt" 2>/dev/null || true
     
-    _green "✓ 初始备份创建成功"
-    _green "备份路径: $backup_path"
-    
-    local backup_size=$(du -sh "$backup_path" 2>/dev/null | cut -f1)
-    _green "备份大小: $backup_size"
-    
-    log_message "初始备份创建完成: $backup_path"
-}
-
-# 创建网络配置备份（带备注）
-create_network_backup() {
-    _blue "=== 创建网络配置备份 ==="
-    
-    # 获取用户输入的备注
-    echo -n "请输入备份备注: "
-    read backup_note
-    
-    if [ -z "$backup_note" ]; then
-        backup_note="手动备份"
-    fi
-    
-    local backup_name="backup_$(date '+%Y%m%d_%H%M%S')"
-    local backup_path="$BACKUP_DIR/$backup_name"
-    
-    mkdir -p "$backup_path"
-    
-    # 保存备注信息
-    echo "备份时间: $(date '+%Y-%m-%d %H:%M:%S')" > "$backup_path/backup_info.txt"
-    echo "备份备注: $backup_note" >> "$backup_path/backup_info.txt"
-    echo "备份类型: 手动备份" >> "$backup_path/backup_info.txt"
-    
-    # 备份网络配置文件
-    local config_files=(
-        "/etc/network/interfaces"
-        "/etc/netplan"
-        "/etc/systemd/network"
-        "/etc/resolv.conf"
-        "/etc/hosts"
-        "/etc/hostname"
-    )
-    
-    for config_file in "${config_files[@]}"; do
-        if [ -e "$config_file" ]; then
-            if [ -d "$config_file" ]; then
-                cp -r "$config_file" "$backup_path/" 2>/dev/null || true
-            else
-                cp "$config_file" "$backup_path/" 2>/dev/null || true
-            fi
-        fi
-    done
-    
-    # 备份防火墙规则
-    if command -v iptables &>/dev/null; then
-        iptables-save > "$backup_path/iptables_rules.txt" 2>/dev/null || true
-    fi
-    
-    if command -v ufw &>/dev/null; then
-        ufw status > "$backup_path/ufw_status.txt" 2>/dev/null || true
-    fi
-    
-    if command -v firewall-cmd &>/dev/null; then
-        firewall-cmd --list-all > "$backup_path/firewalld_rules.txt" 2>/dev/null || true
-    fi
-    
-    # 备份网络服务状态
-    systemctl list-units --type=service --state=running | grep -E "(network|firewall|dns)" > "$backup_path/network_services.txt" 2>/dev/null || true
-    
-    # 备份网络接口信息
-    ip addr show > "$backup_path/network_interfaces.txt" 2>/dev/null || true
-    ip route show > "$backup_path/routing_table.txt" 2>/dev/null || true
-    
     _green "✓ 网络配置备份创建成功"
     _green "备份路径: $backup_path"
     _green "备份备注: $backup_note"
@@ -507,11 +436,72 @@ handle_menu_choice() {
             ;;
         "6"|"exit"|"quit")
             _green "感谢使用！"
+            return 0
             ;;
         *)
             _red "❌ 无效的选择，请重新输入"
+            return 1
             ;;
     esac
+    return 1
+}
+
+# 创建初始网络环境备份
+create_initial_backup() {
+    _blue "=== 创建初始网络环境备份 ==="
+    
+    local backup_name="initial_$(date '+%Y%m%d_%H%M%S')"
+    local backup_path="$BACKUP_DIR/initial"
+    
+    mkdir -p "$backup_path"
+    
+    # 备份网络配置文件
+    local config_files=(
+        "/etc/network/interfaces"
+        "/etc/netplan"
+        "/etc/systemd/network"
+        "/etc/resolv.conf"
+        "/etc/hosts"
+        "/etc/hostname"
+    )
+    
+    for config_file in "${config_files[@]}"; do
+        if [ -e "$config_file" ]; then
+            if [ -d "$config_file" ]; then
+                cp -r "$config_file" "$backup_path/" 2>/dev/null || true
+            else
+                cp "$config_file" "$backup_path/" 2>/dev/null || true
+            fi
+        fi
+    done
+    
+    # 备份防火墙规则
+    if command -v iptables &>/dev/null; then
+        iptables-save > "$backup_path/iptables_rules.txt" 2>/dev/null || true
+    fi
+    
+    if command -v ufw &>/dev/null; then
+        ufw status > "$backup_path/ufw_status.txt" 2>/dev/null || true
+    fi
+    
+    if command -v firewall-cmd &>/dev/null; then
+        firewall-cmd --list-all > "$backup_path/firewalld_rules.txt" 2>/dev/null || true
+    fi
+    
+    # 备份网络服务状态
+    systemctl list-units --type=service --state=running | grep -E "(network|firewall|dns)" > "$backup_path/network_services.txt" 2>/dev/null || true
+    
+    # 备份网络接口信息
+    ip addr show > "$backup_path/network_interfaces.txt" 2>/dev/null || true
+    ip route show > "$backup_path/routing_table.txt" 2>/dev/null || true
+    
+    _green "✓ 初始备份创建成功"
+    _green "备份路径: $backup_path"
+    
+    local backup_size=$(du -sh "$backup_path" 2>/dev/null | cut -f1)
+    _green "备份大小: $backup_size"
+    
+    log_message "初始备份创建完成: $backup_path"
 }
 
 # 更新当前网络状态备份
@@ -881,8 +871,6 @@ test_external_ssh_access() {
             if [ -n "$canyouseeme_result" ]; then
                 if echo "$canyouseeme_result" | grep -q "open\|success"; then
                     _green "✓ canyouseeme.org: TCP端口 $SSH_PORT 外网可访问"
-                else
-                    _yellow "⚠ canyouseeme.org: TCP端口 $SSH_PORT 外网访问受限"
                 fi
             fi
             
@@ -891,8 +879,6 @@ test_external_ssh_access() {
             if [ -n "$portchecker_result" ]; then
                 if echo "$portchecker_result" | grep -q "open\|accessible"; then
                     _green "✓ portchecker.co: TCP端口 $SSH_PORT 外网可访问"
-                else
-                    _yellow "⚠ portchecker.co: TCP端口 $SSH_PORT 外网访问受限"
                 fi
             fi
             
@@ -901,20 +887,15 @@ test_external_ssh_access() {
             if [ -n "$wmipa_result" ]; then
                 if echo "$wmipa_result" | grep -q "open\|accessible"; then
                     _green "✓ whatismyipaddress.com: TCP端口 $SSH_PORT 外网可访问"
-                else
-                    _yellow "⚠ whatismyipaddress.com: TCP端口 $SSH_PORT 外网访问受限"
                 fi
             fi
             
             # 方法4: 使用在线端口扫描工具 (TCP检测)
-            _yellow "使用在线端口扫描工具..."
             local portscan_url="https://www.yougetsignal.com/tools/open-ports/port.php"
             local portscan_result=$(curl -s "$portscan_url" -d "remoteAddress=$server_ip&portNumber=$SSH_PORT" 2>/dev/null)
             if [ -n "$portscan_result" ]; then
                 if echo "$portscan_result" | grep -q "open\|accessible"; then
                     _green "✓ yougetsignal.com: TCP端口 $SSH_PORT 外网可访问"
-                else
-                    _yellow "⚠ yougetsignal.com: TCP端口 $SSH_PORT 外网访问受限"
                 fi
             fi
             
@@ -948,41 +929,29 @@ test_external_ssh_access() {
         
         # 使用nmap检测TCP端口（如果可用）
         if command -v nmap &>/dev/null; then
-            _yellow "使用nmap检测TCP端口 $SSH_PORT..."
             if nmap -p "$SSH_PORT" localhost 2>/dev/null | grep -q "open"; then
                 _green "✓ nmap: TCP端口 $SSH_PORT 本地开放"
-            else
-                _red "❌ nmap: TCP端口 $SSH_PORT 本地未开放"
             fi
         fi
         
         # 使用telnet测试TCP连接（如果可用）
         if command -v telnet &>/dev/null; then
-            _yellow "使用telnet测试TCP连接..."
             if timeout 3 telnet localhost "$SSH_PORT" 2>/dev/null | grep -q "Connected"; then
                 _green "✓ telnet: TCP连接成功"
-            else
-                _red "❌ telnet: TCP连接失败"
             fi
         fi
         
         # 使用nc (netcat) 测试TCP连接（如果可用）
         if command -v nc &>/dev/null; then
-            _yellow "使用netcat测试TCP连接..."
             if timeout 3 nc -z localhost "$SSH_PORT" 2>/dev/null; then
                 _green "✓ netcat: TCP连接成功"
-            else
-                _red "❌ netcat: TCP连接失败"
             fi
         fi
         
         # 使用ss命令检测TCP端口状态（如果可用）
         if command -v ss &>/dev/null; then
-            _yellow "使用ss命令检测TCP端口状态..."
             if ss -tlnp | grep ":$SSH_PORT " >/dev/null 2>&1; then
                 _green "✓ ss: TCP端口 $SSH_PORT 正在监听"
-            else
-                _red "❌ ss: TCP端口 $SSH_PORT 未监听"
             fi
         fi
         
@@ -1354,9 +1323,8 @@ main() {
             read choice
             echo
             
-            handle_menu_choice "$choice"
-            
-            if [ "$choice" = "6" ]; then
+            if handle_menu_choice "$choice"; then
+                # 如果返回0，表示用户选择退出
                 break
             fi
             
@@ -1365,13 +1333,6 @@ main() {
             read
         done
     fi
-    
-    echo
-    _blue "=== 执行完成 ==="
-    _green "日志文件: $LOG_FILE"
-    _green "备份目录: $BACKUP_DIR/"
-    _green "报告目录: $REPORT_DIR/"
-    echo
 }
 
 # 错误处理

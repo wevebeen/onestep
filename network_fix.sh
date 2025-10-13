@@ -5,7 +5,7 @@
 # 支持交互式菜单、带备注备份、配置查看和恢复功能
 
 # 版本信息
-SCRIPT_VERSION="1.7.0"
+SCRIPT_VERSION="1.7.1"
 SCRIPT_BUILD="$(date '+%Y%m%d-%H%M%S')"
 SCRIPT_NAME="网络环境检测与修复脚本"
 
@@ -1166,6 +1166,36 @@ restore_network_config() {
         _green "✓ 已保护 $protected_count 个文件"
         _yellow "💡 如需修改这些文件，请先运行权限修复功能解除保护"
     fi
+    
+    # 重启相关服务
+    _blue "🔄 重启相关网络服务..."
+    local services=("networking" "NetworkManager" "ssh" "sshd" "chrony" "ntp" "smbd" "nmbd" "snmpd" "dhcpd" "dhcpcd")
+    local restarted_count=0
+    
+    for service in "${services[@]}"; do
+        if systemctl list-unit-files | grep -q "^${service}\.service"; then
+            if systemctl is-active --quiet "$service"; then
+                if systemctl restart "$service" 2>/dev/null; then
+                    _green "✓ 已重启: $service"
+                    ((restarted_count++))
+                else
+                    _red "❌ 重启失败: $service"
+                fi
+            else
+                _blue "⏭️ 跳过: $service (服务未运行)"
+            fi
+        else
+            _blue "⏭️ 跳过: $service (服务不存在)"
+        fi
+    done
+    
+    if [ $restarted_count -gt 0 ]; then
+        _green "✓ 已重启 $restarted_count 个服务"
+    else
+        _yellow "⚠️ 没有服务需要重启"
+    fi
+    
+    echo
     
     echo
     echo -n "按回车键继续..."

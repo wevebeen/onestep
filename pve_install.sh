@@ -3,8 +3,8 @@
 # 包含详细的调试信息和错误处理
 
 # 版本信息
-SCRIPT_VERSION="1.0.2"
-SCRIPT_BUILD="20251013-094657"
+SCRIPT_VERSION="1.0.1"
+SCRIPT_BUILD="20251013-094329"
 SCRIPT_NAME="PVE一键安装脚本"
 
 # 脚本配置
@@ -197,28 +197,11 @@ verify_first_execution() {
         return 1
     fi
     
-    # 检查网络配置文件是否存在
-    if [ -f "/etc/network/interfaces" ] && grep -q "vmbr0" /etc/network/interfaces; then
-        _green "✓ vmbr0网桥配置已创建"
-        
-        # 尝试重启网络服务以激活网桥
-        _yellow "正在激活网络配置..."
-        if systemctl restart networking &>/dev/null; then
-            _green "✓ 网络服务已重启"
-            sleep 2  # 等待网桥激活
-        else
-            _yellow "⚠ 网络服务重启失败，尝试手动激活"
-            ifreload -a &>/dev/null || true
-        fi
-        
-        # 再次检查网桥
-        if ip link show vmbr0 &>/dev/null; then
-            _green "✓ vmbr0网桥已激活"
-        else
-            _yellow "⚠ vmbr0网桥配置存在但未激活，将在第二次执行时处理"
-        fi
+    # 检查网络配置
+    if ip link show vmbr0 &>/dev/null; then
+        _green "✓ vmbr0网桥已创建"
     else
-        _red "❌ vmbr0网桥配置未创建"
+        _red "❌ vmbr0网桥未创建"
         return 1
     fi
     
@@ -232,6 +215,58 @@ verify_first_execution() {
     
     _green "第一次执行验证通过"
     return 0
+}
+
+# 重启相关服务以应用更改
+restart_services() {
+    _blue "=== 重启服务以应用更改 ==="
+    
+    # 重启网络服务
+    _yellow "重启网络服务..."
+    systemctl restart networking
+    if [ $? -eq 0 ]; then
+        _green "✓ 网络服务重启成功"
+    else
+        _red "❌ 网络服务重启失败"
+    fi
+    
+    # 重启DNS服务
+    _yellow "重启DNS服务..."
+    systemctl restart systemd-resolved
+    if [ $? -eq 0 ]; then
+        _green "✓ DNS服务重启成功"
+    else
+        _red "❌ DNS服务重启失败"
+    fi
+    
+    # 重启时间同步服务
+    _yellow "重启时间同步服务..."
+    systemctl restart chronyd
+    if [ $? -eq 0 ]; then
+        _green "✓ 时间同步服务重启成功"
+    else
+        _red "❌ 时间同步服务重启失败"
+    fi
+    
+    # 重启haveged服务
+    _yellow "重启haveged服务..."
+    systemctl restart haveged
+    if [ $? -eq 0 ]; then
+        _green "✓ haveged服务重启成功"
+    else
+        _red "❌ haveged服务重启失败"
+    fi
+    
+    # 重启DNS检查服务
+    _yellow "重启DNS检查服务..."
+    systemctl restart check-dns.service
+    if [ $? -eq 0 ]; then
+        _green "✓ DNS检查服务重启成功"
+    else
+        _red "❌ DNS检查服务重启失败"
+    fi
+    
+    _green "服务重启完成"
 }
 
 # 模拟重启状态
@@ -319,24 +354,6 @@ verify_installation() {
         verification_results="${verification_results}✓ vmbr0网桥已创建 "
     else
         verification_results="${verification_results}⚠ vmbr0网桥未找到 "
-        
-        # 尝试修复网桥问题
-        _yellow "尝试修复vmbr0网桥..."
-        if [ -f "/etc/network/interfaces" ] && grep -q "vmbr0" /etc/network/interfaces; then
-            _yellow "检测到vmbr0配置，尝试激活..."
-            systemctl restart networking &>/dev/null
-            sleep 3
-            if ip link show vmbr0 &>/dev/null; then
-                verification_results="${verification_results}✓ vmbr0网桥已修复 "
-                _green "✓ vmbr0网桥修复成功"
-            else
-                verification_results="${verification_results}⚠ vmbr0网桥修复失败 "
-                _yellow "⚠ vmbr0网桥修复失败，请手动检查网络配置"
-            fi
-        else
-            verification_results="${verification_results}⚠ vmbr0配置缺失 "
-            _yellow "⚠ vmbr0配置缺失，请检查网络配置"
-        fi
     fi
     
     # 检查PVE服务
@@ -445,6 +462,9 @@ main() {
             if first_execution; then
                 echo
                 if verify_first_execution; then
+                    echo
+                    restart_services
+                    echo
                     simulate_reboot
                     echo
                     _yellow "第一次执行完成！"

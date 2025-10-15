@@ -13,12 +13,12 @@ MAGENTA='\033[0;35m'
 NC='\033[0m'
 
 # 显示颜色文本
-show_red() { echo -e "${RED}$1${NC}"; }
-show_green() { echo -e "${GREEN}$1${NC}"; }
-show_yellow() { echo -e "${YELLOW}$1${NC}"; }
-show_blue() { echo -e "${BLUE}$1${NC}"; }
-show_cyan() { echo -e "${CYAN}$1${NC}"; }
-show_magenta() { echo -e "${MAGENTA}$1${NC}"; }
+show_red() { echo "$1"; }
+show_green() { echo "$1"; }
+show_yellow() { echo "$1"; }
+show_blue() { echo "$1"; }
+show_cyan() { echo "$1"; }
+show_magenta() { echo "$1"; }
 
 # 获取当前日期时间
 get_datetime() {
@@ -47,7 +47,7 @@ show_title() {
 # 检查是否以root用户运行
 if [ "$EUID" -ne 0 ]; then
     show_title
-    show_red "❌ 错误: 请以root用户运行此脚本"
+    echo "❌ 错误: 请以root用户运行此脚本"
     exit 1
 fi
 
@@ -76,22 +76,22 @@ check_fail2ban_status() {
 # 安装fail2ban
 install_fail2ban() {
     show_title
-    show_blue "🚀 开始安装fail2ban防火墙..."
+    echo "🚀 开始安装fail2ban防火墙..."
     
     CURRENT_IP=$(get_current_ip)
-    show_blue "📍 检测到当前用户IP: $CURRENT_IP"
+    echo "📍 检测到当前用户IP: $CURRENT_IP"
     echo ""
     
     # 1. 更新软件包列表
-    show_green "📦 1. 更新软件包列表..."
+    echo "📦 1. 更新软件包列表..."
     apt update
     
     # 2. 安装fail2ban
-    show_green "📦 2. 安装fail2ban..."
+    echo "📦 2. 安装fail2ban..."
     apt install -y fail2ban whois python3-systemd
     
     # 3. 创建配置文件
-    show_green "⚙️  3. 创建配置文件..."
+    echo "⚙️  3. 创建配置文件..."
     
     # 创建主配置文件
     cat > /etc/fail2ban/jail.local << JAIL_EOF
@@ -146,21 +146,21 @@ ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 $CURRENT_IP
 SSHD_EOF
 
     # 4. 启动服务
-    show_green "🔄 4. 启动fail2ban服务..."
+    echo "🔄 4. 启动fail2ban服务..."
     systemctl start fail2ban
     systemctl enable fail2ban
     
     # 5. 检查服务状态
-    show_green "✅ 5. 检查服务状态..."
+    echo "✅ 5. 检查服务状态..."
     if systemctl is-active --quiet fail2ban; then
-        show_green "✅ fail2ban服务启动成功"
+        echo "✅ fail2ban服务启动成功"
     else
-        show_red "❌ fail2ban服务启动失败"
+        echo "❌ fail2ban服务启动失败"
         return 1
     fi
     
     echo ""
-    show_green "🎉 fail2ban安装完成！"
+    echo "🎉 fail2ban安装完成！"
     show_status
 }
 

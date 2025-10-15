@@ -269,7 +269,7 @@ view_logs() {
 # 等待用户输入
 wait_for_user() {
     echo ""
-    read -p "$(show_yellow "按回车键继续...")" 
+    read -p "${YELLOW}按回车键继续...${NC}" 
 }
 
 # 主程序
@@ -278,7 +278,7 @@ main() {
         show_title
         show_menu
         
-        echo -n "$(show_green "请选择操作 [0-5]: ")"
+        echo -n "${GREEN}请选择操作 [0-5]: ${NC}"
         read choice
         
         case $choice in

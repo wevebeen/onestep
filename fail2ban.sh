@@ -284,16 +284,13 @@ view_logs() {
 
 # 主程序
 main() {
-    # 首次显示标题
-    show_title
-    show_menu
-    
     while true; do
+        clear
+        show_title
+        show_menu
+        
         echo -n "$(_green "请选择操作 [0-5]: ")"
         read choice
-        
-        # 清理输入，移除空格和特殊字符
-        choice=$(echo "$choice" | tr -d '[:space:]' | tr -d '[:cntrl:]')
         
         case $choice in
             1)
@@ -352,19 +349,14 @@ main() {
                 ;;
             *)
                 _red "❌ 无效选择，请重新输入"
-                _yellow "💡 提示: 请输入 0-5 之间的数字"
                 echo ""
-                continue
+                read -p "$(_yellow "按回车键继续...")" 
                 ;;
         esac
         
+        # 等待用户确认
         echo ""
-        echo -n "$(_yellow "按回车键继续...")"
-        read -r
-        echo ""
-        
-        # 操作完成后重新显示简洁菜单（不清屏）
-        show_simple_menu
+        read -p "$(_yellow "按回车键继续...")" 
     done
 }
 

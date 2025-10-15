@@ -1,6 +1,5 @@
 #!/bin/bash
 # fail2ban智能安装和管理脚本
-# 作者: PVE Installer
 # 创建时间: 2025-01-15
 # 版本: 4.0.0
 
@@ -33,7 +32,7 @@ show_title() {
     show_cyan "╔══════════════════════════════════════════════════════════════╗"
     show_cyan "║                    fail2ban 智能管理工具                    ║"
     show_cyan "║                    版本: 4.0.0                             ║"
-    show_cyan "║                    作者: PVE Installer                      ║"
+    show_cyan "║                                                              ║"
     show_cyan "╚══════════════════════════════════════════════════════════════╝"
     echo ""
     show_magenta "当前时间: $(get_datetime)"

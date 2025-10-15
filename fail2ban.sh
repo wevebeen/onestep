@@ -203,42 +203,43 @@ add_current_ip_to_whitelist() {
 # 显示状态信息
 show_status() {
     show_title
-    show_blue "📊 === fail2ban状态 ==="
-    fail2ban-client status
+    echo "📊 === fail2ban状态 ==="
+    fail2ban-client status | sed 's/Status for the jail:/监控状态:/; s/|- Filter/|- 过滤器/; s/|- Currently failed:/|- 当前失败次数:/; s/|- Total failed:/|- 总失败次数:/; s/`- Journal matches:/`- 日志匹配:/; s/`- Actions/`- 动作/; s/|- Currently banned:/|- 当前封禁:/; s/|- Total banned:/|- 总封禁:/; s/`- Banned IP list:/`- 封禁IP列表:/'
     
     echo ""
-    show_blue "🛡️  === SSH防护状态 ==="
-    fail2ban-client status sshd
+    echo "🛡️  === SSH防护状态 ==="
+    fail2ban-client status sshd | sed 's/Status for the jail:/监控状态:/; s/|- Filter/|- 过滤器/; s/|- Currently failed:/|- 当前失败次数:/; s/|- Total failed:/|- 总失败次数:/; s/`- Journal matches:/`- 日志匹配:/; s/`- Actions/`- 动作/; s/|- Currently banned:/|- 当前封禁:/; s/|- Total banned:/|- 总封禁:/; s/`- Banned IP list:/`- 封禁IP列表:/'
     
     echo ""
-    show_blue "🚫 === 当前封禁的IP ==="
+    echo "🚫 === 当前封禁的IP及攻击次数 ==="
     BANNED_IPS=$(iptables -L f2b-sshd -n | grep REJECT | awk '{print $4}')
     if [ -z "$BANNED_IPS" ]; then
-        show_green "✅ 当前没有封禁的IP"
+        echo "✅ 当前没有封禁的IP"
     else
         echo "$BANNED_IPS" | while read ip; do
-            show_red "🚫 $ip"
+            # 获取该IP的攻击次数
+            ATTACK_COUNT=$(fail2ban-client get sshd banip $ip 2>/dev/null | grep -o "bantime" || echo "0")
+            if [ "$ATTACK_COUNT" = "0" ]; then
+                # 从日志中统计攻击次数
+                ATTACK_COUNT=$(journalctl -u ssh --since "24 hours ago" | grep "Failed password" | grep "$ip" | wc -l)
+            fi
+            echo "🚫 $ip (攻击次数: $ATTACK_COUNT)"
         done
     fi
     
     echo ""
-    show_blue "⚙️  === 配置信息 ==="
+    echo "⚙️  === 配置信息 ==="
     BANTIME=$(fail2ban-client get sshd bantime)
     FINDTIME=$(fail2ban-client get sshd findtime)
     MAXRETRY=$(fail2ban-client get sshd maxretry)
     
-    show_cyan "⏰ 封禁时间: $BANTIME 秒 ($(($BANTIME/3600)) 小时)"
-    show_cyan "🔍 检测窗口: $FINDTIME 秒 ($(($FINDTIME/60)) 分钟)"
-    show_cyan "🔢 最大重试: $MAXRETRY 次"
+    echo "⏰ 封禁时间: $BANTIME 秒 ($(($BANTIME/3600)) 小时)"
+    echo "🔍 检测窗口: $FINDTIME 秒 ($(($FINDTIME/60)) 分钟) - 在此时间内监控登录失败次数"
+    echo "🔢 最大重试: $MAXRETRY 次 - 超过此次数将被封禁"
     
     echo ""
-    show_cyan "📋 白名单IP:"
-    fail2ban-client get sshd ignoreip | sed 's/^/   /'
-    
-    echo ""
-    show_green "📁 日志文件: /var/log/fail2ban.log"
-    show_green "📁 配置文件: /etc/fail2ban/jail.local"
-    show_green "📁 SSH配置: /etc/fail2ban/jail.d/sshd.local"
+    echo "📋 白名单IP:"
+    fail2ban-client get sshd ignoreip | sed 's/These IP addresses\/networks are ignored:/这些IP地址\/网络被忽略:/'
 }
 
 # 查看日志

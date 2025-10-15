@@ -260,8 +260,12 @@ show_simple_menu() {
     _cyan "║                       管理菜单                              ║"
     _cyan "╚══════════════════════════════════════════════════════════════╝"
     echo ""
-    _yellow "1️⃣  安装fail2ban  |  2️⃣  添加IP白名单  |  3️⃣  查看状态"
-    _yellow "4️⃣  重启服务      |  5️⃣  查看日志      |  0️⃣  退出程序"
+    _yellow "1️⃣  安装fail2ban"
+    _yellow "2️⃣  添加当前IP到白名单"
+    _yellow "3️⃣  查看状态"
+    _yellow "4️⃣  重启服务"
+    _yellow "5️⃣  查看日志"
+    _yellow "0️⃣  退出程序"
     echo ""
 }
 
@@ -285,7 +289,11 @@ main() {
     show_menu
     
     while true; do
-        read -p "$(_green "请选择操作 [0-5]: ")" choice
+        echo -n "$(_green "请选择操作 [0-5]: ")"
+        read choice
+        
+        # 清理输入，移除空格和特殊字符
+        choice=$(echo "$choice" | tr -d '[:space:]' | tr -d '[:cntrl:]')
         
         case $choice in
             1)
@@ -344,6 +352,9 @@ main() {
                 ;;
             *)
                 _red "❌ 无效选择，请重新输入"
+                _yellow "💡 提示: 请输入 0-5 之间的数字"
+                echo ""
+                continue
                 ;;
         esac
         

@@ -12,51 +12,56 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m'
 
-# 检查是否支持颜色
-if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors)" -ge 8 ]; then
-    USE_COLOR=true
-else
-    USE_COLOR=false
-fi
+# 检查终端是否支持颜色
+check_color_support() {
+    # 检查TERM环境变量
+    if [ -n "$TERM" ] && [ "$TERM" != "dumb" ]; then
+        # 检查是否支持颜色
+        if command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+            return 0
+        fi
+    fi
+    return 1
+}
 
-# 显示颜色文本
+# 显示颜色文本（带兼容性检测）
 show_red() { 
-    if [ "$USE_COLOR" = true ]; then
+    if check_color_support; then
         echo -e "${RED}$1${NC}"
     else
         echo "$1"
     fi
 }
 show_green() { 
-    if [ "$USE_COLOR" = true ]; then
+    if check_color_support; then
         echo -e "${GREEN}$1${NC}"
     else
         echo "$1"
     fi
 }
 show_yellow() { 
-    if [ "$USE_COLOR" = true ]; then
+    if check_color_support; then
         echo -e "${YELLOW}$1${NC}"
     else
         echo "$1"
     fi
 }
 show_blue() { 
-    if [ "$USE_COLOR" = true ]; then
+    if check_color_support; then
         echo -e "${BLUE}$1${NC}"
     else
         echo "$1"
     fi
 }
 show_cyan() { 
-    if [ "$USE_COLOR" = true ]; then
+    if check_color_support; then
         echo -e "${CYAN}$1${NC}"
     else
         echo "$1"
     fi
 }
 show_magenta() { 
-    if [ "$USE_COLOR" = true ]; then
+    if check_color_support; then
         echo -e "${MAGENTA}$1${NC}"
     else
         echo "$1"
@@ -303,7 +308,7 @@ main() {
     while true; do
         show_title
         
-        if [ "$USE_COLOR" = true ]; then
+        if check_color_support; then
             echo -n "${GREEN}请选择操作 [0-5]: ${NC}"
         else
             echo -n "请选择操作 [0-5]: "

@@ -3,70 +3,13 @@
 # 创建时间: 2025-01-15
 # 版本: 4.0.0
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-NC='\033[0m'
-
-# 检查终端是否支持颜色
-check_color_support() {
-    # 检查TERM环境变量
-    if [ -n "$TERM" ] && [ "$TERM" != "dumb" ]; then
-        # 检查是否支持颜色
-        if command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# 显示颜色文本（带兼容性检测）
-show_red() { 
-    if check_color_support; then
-        echo -e "${RED}$1${NC}"
-    else
-        echo "$1"
-    fi
-}
-show_green() { 
-    if check_color_support; then
-        echo -e "${GREEN}$1${NC}"
-    else
-        echo "$1"
-    fi
-}
-show_yellow() { 
-    if check_color_support; then
-        echo -e "${YELLOW}$1${NC}"
-    else
-        echo "$1"
-    fi
-}
-show_blue() { 
-    if check_color_support; then
-        echo -e "${BLUE}$1${NC}"
-    else
-        echo "$1"
-    fi
-}
-show_cyan() { 
-    if check_color_support; then
-        echo -e "${CYAN}$1${NC}"
-    else
-        echo "$1"
-    fi
-}
-show_magenta() { 
-    if check_color_support; then
-        echo -e "${MAGENTA}$1${NC}"
-    else
-        echo "$1"
-    fi
-}
+# 显示文本（无颜色版本）
+show_red() { echo "$1"; }
+show_green() { echo "$1"; }
+show_yellow() { echo "$1"; }
+show_blue() { echo "$1"; }
+show_cyan() { echo "$1"; }
+show_magenta() { echo "$1"; }
 
 # 获取当前日期时间
 get_datetime() {
@@ -308,11 +251,7 @@ main() {
     while true; do
         show_title
         
-        if check_color_support; then
-            echo -n "${GREEN}请选择操作 [0-5]: ${NC}"
-        else
-            echo -n "请选择操作 [0-5]: "
-        fi
+        echo -n "请选择操作 [0-5]: "
         read choice
         
         case $choice in

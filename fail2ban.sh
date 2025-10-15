@@ -269,12 +269,25 @@ wait_for_user() {
     read -p "${YELLOW}按回车键继续...${NC}" 
 }
 
+# 重新显示菜单（不清屏）
+show_menu_again() {
+    echo ""
+    show_cyan "╔══════════════════════════════════════════════════════════════╗"
+    show_cyan "║                       管理菜单                              ║"
+    show_cyan "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    show_yellow "1️⃣  安装fail2ban  |  2️⃣  添加IP白名单  |  3️⃣  查看状态"
+    show_yellow "4️⃣  重启服务      |  5️⃣  查看日志      |  0️⃣  退出程序"
+    echo ""
+}
+
 # 主程序
 main() {
+    # 首次显示标题
+    show_title
+    show_menu
+    
     while true; do
-        show_title
-        show_menu
-        
         echo -n "$(show_green "请选择操作 [0-5]: ")"
         read choice
         
@@ -343,6 +356,9 @@ main() {
                 wait_for_user
                 ;;
         esac
+        
+        # 操作完成后重新显示菜单（不清屏）
+        show_menu_again
     done
 }
 

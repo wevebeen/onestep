@@ -2,7 +2,7 @@
 # fail2ban智能安装和管理脚本
 # 作者: PVE Installer
 # 创建时间: 2025-01-15
-# 版本: 3.0.0
+# 版本: 4.0.0
 
 # 颜色定义
 RED='\033[0;31m'
@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # 显示颜色文本
 show_red() { echo -e "${RED}$1${NC}"; }
@@ -32,7 +32,7 @@ show_title() {
     echo ""
     show_cyan "╔══════════════════════════════════════════════════════════════╗"
     show_cyan "║                    fail2ban 智能管理工具                    ║"
-    show_cyan "║                    版本: 3.0.0                             ║"
+    show_cyan "║                    版本: 4.0.0                             ║"
     show_cyan "║                    作者: PVE Installer                      ║"
     show_cyan "╚══════════════════════════════════════════════════════════════╝"
     echo ""
@@ -245,14 +245,18 @@ show_menu() {
     show_cyan "║                       管理菜单                              ║"
     show_cyan "╚══════════════════════════════════════════════════════════════╝"
     echo ""
-    show_yellow "1️⃣  安装fail2ban  |  2️⃣  添加IP白名单  |  3️⃣  查看状态"
-    show_yellow "4️⃣  重启服务      |  5️⃣  查看日志      |  0️⃣  退出程序"
+    show_yellow "1️⃣  安装fail2ban"
+    show_yellow "2️⃣  添加当前IP到白名单"
+    show_yellow "3️⃣  查看状态"
+    show_yellow "4️⃣  重启服务"
+    show_yellow "5️⃣  查看日志"
+    show_yellow "0️⃣  退出程序"
     echo ""
 }
 
 # 查看日志
 view_logs() {
-    echo ""
+    show_title
     show_blue "📋 === fail2ban日志 (最近20行) ==="
     echo ""
     tail -20 /var/log/fail2ban.log | sed 's/^/   /'
@@ -271,11 +275,10 @@ wait_for_user() {
 
 # 主程序
 main() {
-    # 首次显示标题
-    show_title
-    show_menu
-    
     while true; do
+        show_title
+        show_menu
+        
         echo -n "$(show_green "请选择操作 [0-5]: ")"
         read choice
         

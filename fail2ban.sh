@@ -25,19 +25,9 @@ get_datetime() {
     echo "$(date '+%Y-%m-%d %H:%M:%S')"
 }
 
-# 检查是否在交互式终端中运行
-is_interactive() {
-    [ -t 0 ] && [ -t 1 ]
-}
-
 # 显示标题
 show_title() {
-    if is_interactive; then
-        clear
-    else
-        echo ""
-        echo "=========================================="
-    fi
+    clear
     echo ""
     show_cyan "╔══════════════════════════════════════════════════════════════╗"
     show_cyan "║                    fail2ban 智能管理工具                    ║"
@@ -55,27 +45,6 @@ if [ "$EUID" -ne 0 ]; then
     show_title
     show_red "❌ 错误: 请以root用户运行此脚本"
     exit 1
-fi
-
-# 检查是否通过curl执行，如果是则提供建议
-if ! is_interactive; then
-    echo ""
-    show_yellow "⚠️  检测到非交互式执行环境"
-    show_yellow "💡 建议使用以下方式执行："
-    echo ""
-    show_blue "1. 下载到本地执行："
-    show_blue "   curl -fsSL https://raw.githubusercontent.com/wevebeen/onestep/main/fail2ban.sh -o fail2ban.sh"
-    show_blue "   chmod +x fail2ban.sh"
-    show_blue "   sudo ./fail2ban.sh"
-    echo ""
-    show_blue "2. 或者使用bash -c执行："
-    show_blue "   curl -fsSL https://raw.githubusercontent.com/wevebeen/onestep/main/fail2ban.sh | bash -c 'bash'"
-    echo ""
-    read -p "$(show_yellow "是否继续执行？(y/N): ")" continue_exec
-    if [[ ! "$continue_exec" =~ ^[Yy]$ ]]; then
-        show_red "❌ 用户取消执行"
-        exit 0
-    fi
 fi
 
 # 获取当前用户IP

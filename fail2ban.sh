@@ -76,22 +76,22 @@ check_fail2ban_status() {
 # 安装fail2ban
 install_fail2ban() {
     show_title
-    echo "🚀 开始安装fail2ban防火墙..."
+    echo "开始安装fail2ban防火墙..."
     
     CURRENT_IP=$(get_current_ip)
-    echo "📍 检测到当前用户IP: $CURRENT_IP"
+    echo "检测到当前用户IP: $CURRENT_IP"
     echo ""
     
     # 1. 更新软件包列表
-    echo "📦 1. 更新软件包列表..."
+    echo "1. 更新软件包列表..."
     apt update
     
     # 2. 安装fail2ban
-    echo "📦 2. 安装fail2ban..."
+    echo "2. 安装fail2ban..."
     apt install -y fail2ban whois python3-systemd
     
     # 3. 创建配置文件
-    echo "⚙️  3. 创建配置文件..."
+    echo "3. 创建配置文件..."
     
     # 创建主配置文件
     cat > /etc/fail2ban/jail.local << JAIL_EOF
@@ -146,21 +146,21 @@ ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 $CURRENT_IP
 SSHD_EOF
 
     # 4. 启动服务
-    echo "🔄 4. 启动fail2ban服务..."
+    echo "4. 启动fail2ban服务..."
     systemctl start fail2ban
     systemctl enable fail2ban
     
     # 5. 检查服务状态
-    echo "✅ 5. 检查服务状态..."
+    echo "5. 检查服务状态..."
     if systemctl is-active --quiet fail2ban; then
-        echo "✅ fail2ban服务启动成功"
+        echo "fail2ban服务启动成功"
     else
-        echo "❌ fail2ban服务启动失败"
+        echo "fail2ban服务启动失败"
         return 1
     fi
     
     echo ""
-    echo "🎉 fail2ban安装完成！"
+    echo "fail2ban安装完成！"
     show_status
 }
 
@@ -169,21 +169,21 @@ add_current_ip_to_whitelist() {
     show_title
     CURRENT_IP=$(get_current_ip)
     if [ -z "$CURRENT_IP" ]; then
-        show_red "❌ 无法检测到当前用户IP"
+        echo "无法检测到当前用户IP"
         return 1
     fi
     
-    show_blue "📍 当前用户IP: $CURRENT_IP"
+    echo "当前用户IP: $CURRENT_IP"
     echo ""
     
     # 检查IP是否已在白名单中
     if fail2ban-client get sshd ignoreip | grep -q "$CURRENT_IP"; then
-        show_yellow "⚠️  IP $CURRENT_IP 已在白名单中"
+        echo "IP $CURRENT_IP 已在白名单中"
         return 0
     fi
     
     # 添加到白名单
-    show_green "➕ 添加IP $CURRENT_IP 到白名单..."
+    echo "添加IP $CURRENT_IP 到白名单..."
     
     # 更新配置文件
     sed -i "s/ignoreip = 127.0.0.1\/8 ::1 10.0.0.0\/8 172.16.0.0\/12 192.168.0.0\/16/ignoreip = 127.0.0.1\/8 ::1 10.0.0.0\/8 172.16.0.0\/12 192.168.0.0\/16 $CURRENT_IP/g" /etc/fail2ban/jail.local
@@ -193,9 +193,9 @@ add_current_ip_to_whitelist() {
     systemctl restart fail2ban
     
     if systemctl is-active --quiet fail2ban; then
-        show_green "✅ IP $CURRENT_IP 已成功添加到白名单"
+        echo "IP $CURRENT_IP 已成功添加到白名单"
     else
-        show_red "❌ 添加白名单失败，服务重启失败"
+        echo "添加白名单失败，服务重启失败"
         return 1
     fi
 }
@@ -203,18 +203,18 @@ add_current_ip_to_whitelist() {
 # 显示状态信息
 show_status() {
     show_title
-    echo "📊 === fail2ban状态 ==="
-    fail2ban-client status | sed 's/Status for the jail:/监控状态:/; s/|- Filter/|- 过滤器/; s/|- Currently failed:/|- 当前失败次数:/; s/|- Total failed:/|- 总失败次数:/; s/`- Journal matches:/`- 日志匹配:/; s/`- Actions/`- 动作/; s/|- Currently banned:/|- 当前封禁:/; s/|- Total banned:/|- 总封禁:/; s/`- Banned IP list:/`- 封禁IP列表:/'
+    echo "=== fail2ban状态 ==="
+    fail2ban-client status | sed 's/Status/状态/; s/|- Number of jail:/|- 监控数量:/; s/`- Jail list:/`- 监控列表:/; s/Status for the jail:/监控状态:/; s/|- Filter/|- 过滤器/; s/|- Currently failed:/|- 当前失败次数:/; s/|- Total failed:/|- 总失败次数:/; s/`- Journal matches:/`- 日志匹配:/; s/`- Actions/`- 动作/; s/|- Currently banned:/|- 当前封禁:/; s/|- Total banned:/|- 总封禁:/; s/`- Banned IP list:/`- 封禁IP列表:/'
     
     echo ""
-    echo "🛡️  === SSH防护状态 ==="
+    echo "=== SSH防护状态 ==="
     fail2ban-client status sshd | sed 's/Status for the jail:/监控状态:/; s/|- Filter/|- 过滤器/; s/|- Currently failed:/|- 当前失败次数:/; s/|- Total failed:/|- 总失败次数:/; s/`- Journal matches:/`- 日志匹配:/; s/`- Actions/`- 动作/; s/|- Currently banned:/|- 当前封禁:/; s/|- Total banned:/|- 总封禁:/; s/`- Banned IP list:/`- 封禁IP列表:/'
     
     echo ""
-    echo "🚫 === 当前封禁的IP及攻击次数 ==="
+    echo "=== 当前封禁的IP及攻击次数 ==="
     BANNED_IPS=$(iptables -L f2b-sshd -n | grep REJECT | awk '{print $4}')
     if [ -z "$BANNED_IPS" ]; then
-        echo "✅ 当前没有封禁的IP"
+        echo "当前没有封禁的IP"
     else
         echo "$BANNED_IPS" | while read ip; do
             # 获取该IP的攻击次数
@@ -223,34 +223,34 @@ show_status() {
                 # 从日志中统计攻击次数
                 ATTACK_COUNT=$(journalctl -u ssh --since "24 hours ago" | grep "Failed password" | grep "$ip" | wc -l)
             fi
-            echo "🚫 $ip (攻击次数: $ATTACK_COUNT)"
+            echo "封禁IP: $ip (攻击次数: $ATTACK_COUNT)"
         done
     fi
     
     echo ""
-    echo "⚙️  === 配置信息 ==="
+    echo "=== 配置信息 ==="
     BANTIME=$(fail2ban-client get sshd bantime)
     FINDTIME=$(fail2ban-client get sshd findtime)
     MAXRETRY=$(fail2ban-client get sshd maxretry)
     
-    echo "⏰ 封禁时间: $BANTIME 秒 ($(($BANTIME/3600)) 小时)"
-    echo "🔍 检测窗口: $FINDTIME 秒 ($(($FINDTIME/60)) 分钟) - 在此时间内监控登录失败次数"
-    echo "🔢 最大重试: $MAXRETRY 次 - 超过此次数将被封禁"
+    echo "封禁时间: $BANTIME 秒 ($(($BANTIME/3600)) 小时)"
+    echo "检测窗口: $FINDTIME 秒 ($(($FINDTIME/60)) 分钟) - 在此时间内监控登录失败次数"
+    echo "最大重试: $MAXRETRY 次 - 超过此次数将被封禁"
     
     echo ""
-    echo "📋 白名单IP:"
+    echo "白名单IP:"
     fail2ban-client get sshd ignoreip | sed 's/These IP addresses\/networks are ignored:/这些IP地址\/网络被忽略:/'
 }
 
 # 查看日志
 view_logs() {
     show_title
-    show_blue "📋 === fail2ban日志 (最近20行) ==="
+    echo "=== fail2ban日志 (最近20行) ==="
     echo ""
     tail -20 /var/log/fail2ban.log | sed 's/^/   /'
     
     echo ""
-    show_blue "🔍 === SSH攻击日志 (最近10行) ==="
+    echo "=== SSH攻击日志 (最近10行) ==="
     echo ""
     journalctl -u ssh --since "1 hour ago" | grep -E "Failed password|Invalid user" | tail -10 | sed 's/^/   /'
 }
@@ -258,7 +258,7 @@ view_logs() {
 # 等待用户输入
 wait_for_user() {
     echo ""
-    read -p "$(show_yellow "按回车键继续...")" 
+    read -p "按回车键继续..." 
 }
 
 # 主程序
@@ -266,17 +266,17 @@ main() {
     while true; do
         show_title
         
-        printf "${GREEN}请选择操作 [0-5]: ${NC}"
+        printf "请选择操作 [0-5]: "
         read choice
         
         case $choice in
             1)
                 if check_fail2ban_installed; then
-                    show_yellow "⚠️  fail2ban已安装"
+                    echo "fail2ban已安装"
                     if check_fail2ban_status; then
-                        show_green "✅ fail2ban服务正在运行"
+                        echo "fail2ban服务正在运行"
                     else
-                        show_yellow "⚠️  fail2ban服务未运行，正在启动..."
+                        echo "fail2ban服务未运行，正在启动..."
                         systemctl start fail2ban
                         systemctl enable fail2ban
                     fi
@@ -290,10 +290,10 @@ main() {
                     if check_fail2ban_status; then
                         add_current_ip_to_whitelist
                     else
-                        show_red "❌ fail2ban服务未运行，请先启动服务"
+                        echo "fail2ban服务未运行，请先启动服务"
                     fi
                 else
-                    show_red "❌ fail2ban未安装，请先安装fail2ban"
+                    echo "fail2ban未安装，请先安装fail2ban"
                 fi
                 wait_for_user
                 ;;
@@ -302,24 +302,24 @@ main() {
                     if check_fail2ban_status; then
                         show_status
                     else
-                        show_red "❌ fail2ban服务未运行，请先启动服务"
+                        echo "fail2ban服务未运行，请先启动服务"
                     fi
                 else
-                    show_red "❌ fail2ban未安装，请先安装fail2ban"
+                    echo "fail2ban未安装，请先安装fail2ban"
                 fi
                 wait_for_user
                 ;;
             4)
                 if check_fail2ban_installed; then
-                    show_green "🔄 重启fail2ban服务..."
+                    echo "重启fail2ban服务..."
                     systemctl restart fail2ban
                     if systemctl is-active --quiet fail2ban; then
-                        show_green "✅ 服务重启成功"
+                        echo "服务重启成功"
                     else
-                        show_red "❌ 服务重启失败"
+                        echo "服务重启失败"
                     fi
                 else
-                    show_red "❌ fail2ban未安装"
+                    echo "fail2ban未安装"
                 fi
                 wait_for_user
                 ;;
@@ -327,18 +327,18 @@ main() {
                 if check_fail2ban_installed; then
                     view_logs
                 else
-                    show_red "❌ fail2ban未安装，请先安装fail2ban"
+                    echo "fail2ban未安装，请先安装fail2ban"
                 fi
                 wait_for_user
                 ;;
             0)
                 show_title
-                show_green "👋 感谢使用fail2ban管理工具！"
-                show_green "🕐 退出时间: $(get_datetime)"
+                echo "感谢使用fail2ban管理工具！"
+                echo "退出时间: $(get_datetime)"
                 exit 0
                 ;;
             *)
-                show_red "❌ 无效选择，请重新输入"
+                echo "无效选择，请重新输入"
                 wait_for_user
                 ;;
         esac

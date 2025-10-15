@@ -244,12 +244,8 @@ show_menu() {
     show_cyan "║                       管理菜单                              ║"
     show_cyan "╚══════════════════════════════════════════════════════════════╝"
     echo ""
-    show_yellow "1️⃣  安装fail2ban"
-    show_yellow "2️⃣  添加当前IP到白名单"
-    show_yellow "3️⃣  查看状态"
-    show_yellow "4️⃣  重启服务"
-    show_yellow "5️⃣  查看日志"
-    show_yellow "0️⃣  退出程序"
+    show_yellow "1️⃣  安装fail2ban  |  2️⃣  添加IP白名单  |  3️⃣  查看状态"
+    show_yellow "4️⃣  重启服务      |  5️⃣  查看日志      |  0️⃣  退出程序"
     echo ""
 }
 
@@ -269,7 +265,7 @@ view_logs() {
 # 等待用户输入
 wait_for_user() {
     echo ""
-    read -p "${YELLOW}按回车键继续...${NC}" 
+    read -p "$(show_yellow "按回车键继续...")" 
 }
 
 # 主程序

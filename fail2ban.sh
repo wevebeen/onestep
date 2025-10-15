@@ -32,7 +32,7 @@ show_title() {
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
     echo "                    fail2ban 智能管理工具"
-    echo "                        版本号: 4.1.0"
+    echo "                        版本号: 4.1.1"
     echo ""
     echo "         [1] 安装fail2ban  [2] 添加白名单     [3] 查看状态"
     echo "         [4] 重启服务       [5] 查看日志      [6] 卸载fail2ban"
@@ -243,7 +243,7 @@ show_status() {
     fail2ban-client get sshd ignoreip | sed 's/These IP addresses\/networks are ignored:/这些IP地址\/网络被忽略:/'
 }
 
-# 卸载fail2ban（保留白名单）
+# 卸载fail2ban（不保留白名单）
 uninstall_fail2ban() {
     show_title
     echo "=== 卸载fail2ban ==="
@@ -255,7 +255,7 @@ uninstall_fail2ban() {
         return 0
     fi
     
-    echo "警告: 此操作将卸载fail2ban，但会保留白名单配置"
+    echo "警告: 此操作将完全卸载fail2ban，包括所有配置"
     echo ""
     read -p "确认卸载fail2ban? (y/N): " confirm
     
@@ -270,30 +270,16 @@ uninstall_fail2ban() {
     systemctl stop fail2ban
     systemctl disable fail2ban
     
-    echo "2. 备份白名单配置..."
-    # 备份白名单配置
-    if [ -f /etc/fail2ban/jail.local ]; then
-        cp /etc/fail2ban/jail.local /tmp/fail2ban_jail_backup.conf
-        echo "   白名单配置已备份到: /tmp/fail2ban_jail_backup.conf"
-    fi
-    
-    if [ -f /etc/fail2ban/jail.d/sshd.local ]; then
-        cp /etc/fail2ban/jail.d/sshd.local /tmp/fail2ban_sshd_backup.conf
-        echo "   SSH配置已备份到: /tmp/fail2ban_sshd_backup.conf"
-    fi
-    
-    echo "3. 卸载fail2ban软件包..."
+    echo "2. 卸载fail2ban软件包..."
     apt remove -y fail2ban
     
-    echo "4. 清理配置文件..."
+    echo "3. 清理配置文件..."
     rm -rf /etc/fail2ban/
     rm -rf /var/log/fail2ban.log
     
     echo ""
     echo "fail2ban卸载完成!"
-    echo "白名单配置已备份到:"
-    echo "  - /tmp/fail2ban_jail_backup.conf"
-    echo "  - /tmp/fail2ban_sshd_backup.conf"
+    echo "所有配置已清理"
     echo ""
     echo "如需重新安装，可以使用选项1重新安装"
     wait_for_user

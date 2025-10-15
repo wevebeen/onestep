@@ -269,11 +269,6 @@ wait_for_user() {
     read -p "$(show_yellow "按回车键继续...")" 
 }
 
-# 重新显示菜单（不清屏）
-show_menu_again() {
-    show_menu
-}
-
 # 主程序
 main() {
     # 首次显示标题
@@ -349,9 +344,6 @@ main() {
                 wait_for_user
                 ;;
         esac
-        
-        # 操作完成后重新显示菜单（不清屏）
-        show_menu_again
     done
 }
 

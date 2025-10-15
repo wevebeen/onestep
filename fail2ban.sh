@@ -252,7 +252,7 @@ show_menu() {
 
 # 查看日志
 view_logs() {
-    show_title
+    echo ""
     show_blue "📋 === fail2ban日志 (最近20行) ==="
     echo ""
     tail -20 /var/log/fail2ban.log | sed 's/^/   /'
@@ -266,19 +266,12 @@ view_logs() {
 # 等待用户输入
 wait_for_user() {
     echo ""
-    read -p "${YELLOW}按回车键继续...${NC}" 
+    read -p "$(show_yellow "按回车键继续...")" 
 }
 
 # 重新显示菜单（不清屏）
 show_menu_again() {
-    echo ""
-    show_cyan "╔══════════════════════════════════════════════════════════════╗"
-    show_cyan "║                       管理菜单                              ║"
-    show_cyan "╚══════════════════════════════════════════════════════════════╝"
-    echo ""
-    show_yellow "1️⃣  安装fail2ban  |  2️⃣  添加IP白名单  |  3️⃣  查看状态"
-    show_yellow "4️⃣  重启服务      |  5️⃣  查看日志      |  0️⃣  退出程序"
-    echo ""
+    show_menu
 }
 
 # 主程序

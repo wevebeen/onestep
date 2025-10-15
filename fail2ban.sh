@@ -275,7 +275,7 @@ main() {
         show_title
         show_menu
         
-        echo -n "${GREEN}请选择操作 [0-5]: ${NC}"
+        echo -n "$(show_green "请选择操作 [0-5]: ")"
         read choice
         
         case $choice in

@@ -247,10 +247,20 @@ view_logs() {
     show_title
     echo "=== fail2ban日志 (最近20行) ==="
     echo ""
+    echo "说明:"
+    echo "  - NOTICE [sshd] Ban IP地址: 封禁IP地址"
+    echo "  - NOTICE [sshd] Restore Ban IP地址: 恢复封禁IP地址"
+    echo "  - INFO [sshd] Found IP地址: 检测到攻击IP地址"
+    echo ""
     tail -20 /var/log/fail2ban.log | sed 's/^/   /'
     
     echo ""
     echo "=== SSH攻击日志 (最近10行) ==="
+    echo ""
+    echo "说明:"
+    echo "  - Failed password: 密码错误登录失败"
+    echo "  - Invalid user: 无效用户名登录尝试"
+    echo "  - from IP地址: 攻击来源IP地址"
     echo ""
     journalctl -u ssh --since "1 hour ago" | grep -E "Failed password|Invalid user" | tail -10 | sed 's/^/   /'
 }

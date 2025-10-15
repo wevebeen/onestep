@@ -3,13 +3,22 @@
 # 创建时间: 2025-01-15
 # 版本: 4.0.0
 
-# 显示文本（无颜色版本）
-show_red() { echo "$1"; }
-show_green() { echo "$1"; }
-show_yellow() { echo "$1"; }
-show_blue() { echo "$1"; }
-show_cyan() { echo "$1"; }
-show_magenta() { echo "$1"; }
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+NC='\033[0m'
+
+# 显示颜色文本
+show_red() { echo -e "${RED}$1${NC}"; }
+show_green() { echo -e "${GREEN}$1${NC}"; }
+show_yellow() { echo -e "${YELLOW}$1${NC}"; }
+show_blue() { echo -e "${BLUE}$1${NC}"; }
+show_cyan() { echo -e "${CYAN}$1${NC}"; }
+show_magenta() { echo -e "${MAGENTA}$1${NC}"; }
 
 # 获取当前日期时间
 get_datetime() {
@@ -251,7 +260,7 @@ main() {
     while true; do
         show_title
         
-        echo -n "请选择操作 [0-5]: "
+        printf "${GREEN}请选择操作 [0-5]: ${NC}"
         read choice
         
         case $choice in

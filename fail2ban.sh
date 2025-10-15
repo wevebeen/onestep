@@ -247,25 +247,12 @@ view_logs() {
     show_title
     echo "=== fail2ban日志 (最近20行) ==="
     echo ""
-    tail -20 /var/log/fail2ban.log | sed \
-        -e 's/NOTICE \[sshd\] Ban/通知 [sshd] 封禁/g' \
-        -e 's/NOTICE \[sshd\] Restore Ban/通知 [sshd] 恢复封禁/g' \
-        -e 's/INFO \[sshd\] Found/信息 [sshd] 检测到/g' \
-        -e 's/fail2ban\.actions/fail2ban.动作/g' \
-        -e 's/fail2ban\.filter/fail2ban.过滤器/g' \
-        -e 's/^/   /'
+    tail -20 /var/log/fail2ban.log | sed 's/^/   /'
     
     echo ""
     echo "=== SSH攻击日志 (最近10行) ==="
     echo ""
-    journalctl -u ssh --since "1 hour ago" | grep -E "Failed password|Invalid user" | tail -10 | sed \
-        -e 's/Failed password for invalid user/无效用户密码错误/g' \
-        -e 's/Failed password/密码错误/g' \
-        -e 's/Invalid user/无效用户/g' \
-        -e 's/from/来自/g' \
-        -e 's/port/端口/g' \
-        -e 's/ssh2/SSH2/g' \
-        -e 's/^/   /'
+    journalctl -u ssh --since "1 hour ago" | grep -E "Failed password|Invalid user" | tail -10 | sed 's/^/   /'
 }
 
 # 等待用户输入

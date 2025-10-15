@@ -3,6 +3,13 @@
 # 创建时间: 2025-01-15
 # 版本: 4.0.0
 
+# 检测终端是否支持颜色
+if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+    USE_COLOR=true
+else
+    USE_COLOR=false
+fi
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -13,12 +20,48 @@ MAGENTA='\033[0;35m'
 NC='\033[0m'
 
 # 显示颜色文本
-show_red() { echo -e "${RED}$1${NC}"; }
-show_green() { echo -e "${GREEN}$1${NC}"; }
-show_yellow() { echo -e "${YELLOW}$1${NC}"; }
-show_blue() { echo -e "${BLUE}$1${NC}"; }
-show_cyan() { echo -e "${CYAN}$1${NC}"; }
-show_magenta() { echo -e "${MAGENTA}$1${NC}"; }
+show_red() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${RED}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_green() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${GREEN}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_yellow() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${YELLOW}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_blue() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${BLUE}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_cyan() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${CYAN}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_magenta() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${MAGENTA}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
 
 # 获取当前日期时间
 get_datetime() {
@@ -260,7 +303,11 @@ main() {
     while true; do
         show_title
         
-        echo -n "${GREEN}请选择操作 [0-5]: ${NC}"
+        if [ "$USE_COLOR" = true ]; then
+            echo -n "${GREEN}请选择操作 [0-5]: ${NC}"
+        else
+            echo -n "请选择操作 [0-5]: "
+        fi
         read choice
         
         case $choice in

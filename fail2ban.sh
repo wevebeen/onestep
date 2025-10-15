@@ -12,13 +12,56 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m'
 
+# 检查是否支持颜色
+if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors)" -ge 8 ]; then
+    USE_COLOR=true
+else
+    USE_COLOR=false
+fi
+
 # 显示颜色文本
-show_red() { echo -e "${RED}$1${NC}"; }
-show_green() { echo -e "${GREEN}$1${NC}"; }
-show_yellow() { echo -e "${YELLOW}$1${NC}"; }
-show_blue() { echo -e "${BLUE}$1${NC}"; }
-show_cyan() { echo -e "${CYAN}$1${NC}"; }
-show_magenta() { echo -e "${MAGENTA}$1${NC}"; }
+show_red() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${RED}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_green() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${GREEN}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_yellow() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${YELLOW}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_blue() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${BLUE}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_cyan() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${CYAN}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
+show_magenta() { 
+    if [ "$USE_COLOR" = true ]; then
+        echo -e "${MAGENTA}$1${NC}"
+    else
+        echo "$1"
+    fi
+}
 
 # 获取当前日期时间
 get_datetime() {
@@ -27,7 +70,12 @@ get_datetime() {
 
 # 显示标题
 show_title() {
-    clear
+    # 尝试清屏，如果失败则显示分隔线
+    if command -v clear >/dev/null 2>&1; then
+        clear 2>/dev/null || echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+    else
+        echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+    fi
     echo ""
     show_cyan "╔══════════════════════════════════════════════════════════════╗"
     show_cyan "║                    fail2ban 智能管理工具                    ║"
@@ -269,7 +317,9 @@ view_logs() {
 # 等待用户输入
 wait_for_user() {
     echo ""
-    read -p "$(show_yellow "按回车键继续...")" 
+    echo -n "$(show_yellow "按回车键继续...")"
+    read -r
+    echo ""
 }
 
 # 主程序
@@ -279,7 +329,7 @@ main() {
         show_menu
         
         echo -n "$(show_green "请选择操作 [0-5]: ")"
-        read choice
+        read -r choice
         
         case $choice in
             1)

@@ -247,22 +247,25 @@ view_logs() {
     show_title
     echo "=== fail2ban日志 (最近20行) ==="
     echo ""
-    echo "说明:"
-    echo "  - NOTICE [sshd] Ban IP地址: 封禁IP地址"
-    echo "  - NOTICE [sshd] Restore Ban IP地址: 恢复封禁IP地址"
-    echo "  - INFO [sshd] Found IP地址: 检测到攻击IP地址"
-    echo ""
-    tail -20 /var/log/fail2ban.log | sed 's/^/   /'
+    tail -20 /var/log/fail2ban.log | sed \
+        -e 's/NOTICE \[sshd\] Ban/通知 [sshd] 封禁/g' \
+        -e 's/NOTICE \[sshd\] Restore Ban/通知 [sshd] 恢复封禁/g' \
+        -e 's/INFO \[sshd\] Found/信息 [sshd] 检测到/g' \
+        -e 's/fail2ban\.actions/fail2ban.动作/g' \
+        -e 's/fail2ban\.filter/fail2ban.过滤器/g' \
+        -e 's/^/   /'
     
     echo ""
     echo "=== SSH攻击日志 (最近10行) ==="
     echo ""
-    echo "说明:"
-    echo "  - Failed password: 密码错误登录失败"
-    echo "  - Invalid user: 无效用户名登录尝试"
-    echo "  - from IP地址: 攻击来源IP地址"
-    echo ""
-    journalctl -u ssh --since "1 hour ago" | grep -E "Failed password|Invalid user" | tail -10 | sed 's/^/   /'
+    journalctl -u ssh --since "1 hour ago" | grep -E "Failed password|Invalid user" | tail -10 | sed \
+        -e 's/Failed password for invalid user/无效用户密码错误/g' \
+        -e 's/Failed password/密码错误/g' \
+        -e 's/Invalid user/无效用户/g' \
+        -e 's/from/来自/g' \
+        -e 's/port/端口/g' \
+        -e 's/ssh2/SSH2/g' \
+        -e 's/^/   /'
 }
 
 # 等待用户输入

@@ -1,6 +1,6 @@
 #!/bin/bash
 # fail2ban智能安装和管理脚本
-# 作者: PVE Installer
+# 作者: Fail2ban Installer
 # 创建时间: 2025-01-14
 # 版本: 2.1.0
 
@@ -253,6 +253,18 @@ show_menu() {
     echo ""
 }
 
+# 显示简洁菜单（用于操作后重新显示）
+show_simple_menu() {
+    echo ""
+    _cyan "╔══════════════════════════════════════════════════════════════╗"
+    _cyan "║                       管理菜单                              ║"
+    _cyan "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    _yellow "1️⃣  安装fail2ban  |  2️⃣  添加IP白名单  |  3️⃣  查看状态"
+    _yellow "4️⃣  重启服务      |  5️⃣  查看日志      |  0️⃣  退出程序"
+    echo ""
+}
+
 # 查看日志
 view_logs() {
     show_title
@@ -268,9 +280,11 @@ view_logs() {
 
 # 主程序
 main() {
+    # 首次显示标题
+    show_title
+    show_menu
+    
     while true; do
-        show_title
-        show_menu
         read -p "$(_green "请选择操作 [0-5]: ")" choice
         
         case $choice in
@@ -334,7 +348,12 @@ main() {
         esac
         
         echo ""
-        read -p "$(_yellow "按回车键继续...")" 
+        echo -n "$(_yellow "按回车键继续...")"
+        read -r
+        echo ""
+        
+        # 操作完成后重新显示简洁菜单（不清屏）
+        show_simple_menu
     done
 }
 

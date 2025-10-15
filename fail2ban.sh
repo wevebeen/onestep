@@ -3,13 +3,6 @@
 # 创建时间: 2025-01-15
 # 版本: 4.0.0
 
-# 检测终端是否支持颜色
-if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
-    USE_COLOR=true
-else
-    USE_COLOR=false
-fi
-
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -18,6 +11,13 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m'
+
+# 检查是否支持颜色
+if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors)" -ge 8 ]; then
+    USE_COLOR=true
+else
+    USE_COLOR=false
+fi
 
 # 显示颜色文本
 show_red() { 

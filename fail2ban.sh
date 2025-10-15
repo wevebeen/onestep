@@ -33,8 +33,8 @@ show_title() {
     show_cyan "║                    fail2ban 智能管理工具                    ║"
     show_cyan "║                    版本: 4.0.0                             ║"
     show_cyan "║                                                              ║"
-    show_cyan "║  1️⃣  安装fail2ban  |  2️⃣  添加IP白名单  |  3️⃣  查看状态  ║"
-    show_cyan "║  4️⃣  重启服务      |  5️⃣  查看日志      |  0️⃣  退出程序  ║"
+    show_cyan "║  1️⃣ 安装fail2ban   2️⃣ 添加IP白名单   3️⃣ 查看状态     ║"
+    show_cyan "║  4️⃣ 重启服务       5️⃣ 查看日志       0️⃣ 退出程序     ║"
     show_cyan "╚══════════════════════════════════════════════════════════════╝"
     echo ""
 }

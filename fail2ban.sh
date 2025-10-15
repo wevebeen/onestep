@@ -280,18 +280,26 @@ main() {
                 wait_for_user
                 ;;
             2)
-                if check_fail2ban_installed && check_fail2ban_status; then
-                    add_current_ip_to_whitelist
+                if check_fail2ban_installed; then
+                    if check_fail2ban_status; then
+                        add_current_ip_to_whitelist
+                    else
+                        show_red "❌ fail2ban服务未运行，请先启动服务"
+                    fi
                 else
-                    show_red "❌ fail2ban未安装或服务未运行"
+                    show_red "❌ fail2ban未安装，请先安装fail2ban"
                 fi
                 wait_for_user
                 ;;
             3)
-                if check_fail2ban_installed && check_fail2ban_status; then
-                    show_status
+                if check_fail2ban_installed; then
+                    if check_fail2ban_status; then
+                        show_status
+                    else
+                        show_red "❌ fail2ban服务未运行，请先启动服务"
+                    fi
                 else
-                    show_red "❌ fail2ban未安装或服务未运行"
+                    show_red "❌ fail2ban未安装，请先安装fail2ban"
                 fi
                 wait_for_user
                 ;;
@@ -313,7 +321,7 @@ main() {
                 if check_fail2ban_installed; then
                     view_logs
                 else
-                    show_red "❌ fail2ban未安装"
+                    show_red "❌ fail2ban未安装，请先安装fail2ban"
                 fi
                 wait_for_user
                 ;;

@@ -186,6 +186,29 @@ first_execution() {
     fi
 }
 
+# 检查网络网桥状态（带重试机制）
+check_network_bridge() {
+    local max_retries=3
+    local retry_interval=5
+    
+    _yellow "检查vmbr0网桥状态..."
+    
+    for ((i=1; i<=max_retries; i++)); do
+        if ip link show vmbr0 &>/dev/null; then
+            _green "✓ vmbr0网桥已创建"
+            return 0
+        else
+            if [ $i -lt $max_retries ]; then
+                _yellow "⚠ vmbr0网桥未创建，等待${retry_interval}秒后重试 (${i}/${max_retries})"
+                sleep $retry_interval
+            else
+                _red "❌ vmbr0网桥未创建 (已重试${max_retries}次)"
+                return 1
+            fi
+        fi
+    done
+}
+
 # 验证第一次执行结果
 verify_first_execution() {
     _blue "=== 验证第一次执行结果 ==="
@@ -198,11 +221,9 @@ verify_first_execution() {
         return 1
     fi
     
-    # 检查网络配置
-    if ip link show vmbr0 &>/dev/null; then
-        _green "✓ vmbr0网桥已创建"
-    else
-        _red "❌ vmbr0网桥未创建"
+    # 检查网络配置（使用重试机制）
+    if ! check_network_bridge; then
+        _red "❌ vmbr0网桥检查失败"
         return 1
     fi
     
@@ -227,6 +248,8 @@ restart_services() {
     systemctl restart networking
     if [ $? -eq 0 ]; then
         _green "✓ 网络服务重启成功"
+        _yellow "等待网络配置生效..."
+        sleep 5
     else
         _red "❌ 网络服务重启失败"
     fi
@@ -350,8 +373,8 @@ verify_installation() {
         return 1
     fi
     
-    # 检查网桥
-    if ip link show vmbr0 &>/dev/null; then
+    # 检查网桥（使用重试机制）
+    if check_network_bridge; then
         verification_results="${verification_results}✓ vmbr0网桥已创建 "
     else
         verification_results="${verification_results}⚠ vmbr0网桥未找到 "
